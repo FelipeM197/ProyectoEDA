@@ -9,4 +9,7 @@ explicar el problema de los datos corruptos y la solucion con doble try
 
 describir el problema de los datos con coma y la solucion con locale
 
+
 explica como se limpian los datos con trim
+
+explica muy a detalle como funciona la formula de la confianza
