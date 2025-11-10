@@ -35,6 +35,26 @@ def buble_sort(lista):
             break
     return lista
 
+def quick_sort(lista):
+    """
+    Implementa el algoritmo Quick Sort para ordenar restaurantes por puntuación
+    Args:
+        lista: Lista de diccionarios con información de restaurantes
+    Returns:
+        Lista ordenada de restaurantes
+    """
+    if len(lista) <= 1:
+        return lista
+    else:
+        pivote = lista[len(lista) // 2]['puntuacion_total']
+        izquierda = [x for x in lista if x['puntuacion_total'] < pivote]
+        centro = [x for x in lista if x['puntuacion_total'] == pivote]
+        derecha = [x for x in lista if x['puntuacion_total'] > pivote]
+        return quick_sort(izquierda) + centro + quick_sort(derecha) 
+    
+
+
+
 def main():
     """Función principal del programa"""
     # Definición de archivos de entrada y salida
@@ -81,8 +101,7 @@ def main():
     # Selección y ejecución del algoritmo de ordenamiento
     if opcion == 1:
         print("Ordenando con QuickSort por Puntuacion de Confianza...")
-        # Aquí iría la implementación de QuickSort
-        print("QuickSort no implementado aún")
+        lista_restaurantes = quick_sort(lista_restaurantes)
         return
     elif opcion == 2:
         print("Ordenando con BubbleSort por Puntuacion de Confianza...")
