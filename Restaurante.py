@@ -4,7 +4,7 @@ class Restaurante:
             self.nombreREstaurante = nombreREstaurante
             self.rating = rating
             self.numeroResenas = numeroResenas
-            self.puntuacionTotal = puntuacionTotal 
+            self.puntuacionTotal = 0
 
         def __repr__(self):
             return f"Restaurante(nombreREstaurante={self.nombreREstaurante}, rating={self.rating}, numeroResenas={self.numeroResenas}, puntuacionTotal={self.puntuacionTotal})"
