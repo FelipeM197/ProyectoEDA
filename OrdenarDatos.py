@@ -19,10 +19,6 @@ except locale.Error:
     locale.setlocale(locale.LC_ALL, '')
 
 def quick_sort(lista):
-    """
-    Ordenación por 'puntuacion_total' sin usar .sort() ni sorted().
-    Implementación: Merge Sort iterativo (bottom-up), orden descendente.
-    """
     n = len(lista)
     if n <= 1:
         return lista
@@ -84,10 +80,6 @@ def quick_sort_paralelo(lista):
 
 # Agregar de nuevo las funciones de fusión que faltaban
 def fusionar_multiples_listas(listas_ordenadas):
-    """
-    Fusiona una lista de listas (ej. N trozos) de dos en dos
-    hasta que solo queda una lista.
-    """
     if not listas_ordenadas:
         return []
 
@@ -113,7 +105,7 @@ def fusionar_dos_listas(listaA, listaB):
     i = 0
     j = 0
     
-    # 1. Recorremos ambas listas mientras haya elementos en las dos
+    # Recorremos ambas listas mientras haya elementos en las dos
     while i < len(listaA) and j < len(listaB):
         # (Orden DESCENDENTE)
         if listaA[i]['puntuacion_total'] > listaB[j]['puntuacion_total']:
@@ -123,7 +115,7 @@ def fusionar_dos_listas(listaA, listaB):
             lista_fusionada.append(listaB[j])
             j += 1 # Avanzamos el puntero B
             
-    # 2. Cuando una lista se acaba, añadimos lo que queda de la otra
+    # Cuando una lista se acaba, añadimos lo que queda de la otra
     while i < len(listaA):
         lista_fusionada.append(listaA[i])
         i += 1
@@ -133,15 +125,8 @@ def fusionar_dos_listas(listaA, listaB):
         
     return lista_fusionada
 
-# Eliminadas: heap_sort y _heapify (implementaciones de un solo núcleo)
 
-# Reemplazo: función de worker HeapSort (antes _heap_sort_silencioso) renombrada a _heap_sort
-def _heap_sort(lista):
-    """
-    Worker para HeapSort paralelo.
-    Implementa una versión in-place simple de HeapSort por chunk (sin contador ni prints).
-    Orden descendente por 'puntuacion_total'.
-    """
+def heap_sort(lista):
     n = len(lista)
     # Construir min-heap
     for i in range(n // 2 - 1, -1, -1):
@@ -172,28 +157,28 @@ def heap_sort_paralelo(lista):
     """
     print("Iniciando HeapSort Paralelo...")
     
-    # 1. Determinar el número de núcleos a usar
+    # Determina el número de núcleos a usar
     num_nucleos = mult.cpu_count()
     print(f"Usando {num_nucleos} núcleos de CPU...")
     
-    # 2. Dividir la lista en 'N' trozos (chunks)
+    # Divide la lista en 'N' trozos (chunks)
     n = len(lista)
     tamano_trozo = math.ceil(n / num_nucleos)
     
     trozos = [lista[i : i + tamano_trozo] for i in range(0, n, tamano_trozo)]
     print(f"Lista dividida en {len(trozos)} trozos de ~{tamano_trozo} elementos.")
 
-    # 3. Crear el Pool de Trabajadores
+    # Crea el Pool de Trabajadores
     with mult.Pool(processes=num_nucleos) as pool:
         
         print("Enviando trozos a los núcleos para ordenar (pool.map)...")
         
         # Usamos la función _heap_sort (sin 'silencioso')
-        trozos_ordenados = pool.map(_heap_sort, trozos)
+        trozos_ordenados = pool.map(heap_sort, trozos)
         
         print("Ordenamiento de trozos completado. Fusionando resultados...")
 
-    # 4. Fusionar los trozos ordenados
+    # Fusiona los trozos ordenados
     lista_final_ordenada = fusionar_multiples_listas(trozos_ordenados)
     
     return lista_final_ordenada
