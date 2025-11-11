@@ -43,8 +43,8 @@ public class Ordenar {
         System.out.println("Carga completa. Se leyeron " + listaRestaurantes.size() + " registros.");
 
         System.out.println("\n=== MENÚ DE ORDENAMIENTO ===");
-        System.out.println("1. Ordenar con BubbleSort");
-        System.out.println("2. Ordenar con QuickSort (próximamente)");
+        System.out.println("1. Ordenar con HeapSort");
+        System.out.println("2. Ordenar con QuickSort");
         System.out.print("Seleccione el algoritmo (1-2): ");
         
         int opcion = scanner.nextInt();
@@ -78,12 +78,13 @@ public class Ordenar {
         System.out.println("\nIniciando ordenamiento...");
         switch(opcion) {
             case 1:
-                System.out.println("Ejecutando BubbleSort...");
-                bubbleSort(listaRestaurantes);
+                System.out.println("Ejecutando HeapSort ");
+                heapSort(listaRestaurantes);
                 break;
             case 2:
-                System.out.println("QuickSort aún no implementado.");
-                return;
+                System.out.println("Ejecutando QuickSort");
+                quickSort(listaRestaurantes);
+                break;
             default:
                 System.out.println("Opción no válida.");
                 return;
@@ -113,32 +114,140 @@ public class Ordenar {
     }
     
 
-    /**
-     * Este algoritmo es O(n^2), por lo que deberia tardarse algunos minutos
-     */
-    public static void bubbleSort(ArrayList<Restaurante> lista) {
+    public static void heapSort(ArrayList<Restaurante> lista) {
         int n = lista.size();
-        int iteracion = 0;
-        
-        for (int i = 0; i < n - 1; i++) {
-            boolean intercambiado = false;
-            iteracion++;
-            System.out.printf("Iteración %d de %d...\n", iteracion, n-1);
+
+        // Construir un Min-Heap (el elemento más pequeño en la raíz)
+        // Empezamos desde el último nodo no-hoja (n/2 - 1)
+        for (int i = n / 2 - 1; i >= 0; i--) {
+            heapify(lista, n, i);
+        }
+
+        // Extraer elementos (el más pequeño) uno por uno
+        for (int i = n - 1; i > 0; i--) {
+            // Mover la raíz actual (el más pequeño) al final de la sección
+            // (que es 'i')
+            Restaurante temp = lista.get(0);
+            lista.set(0, lista.get(i));
+            lista.set(i, temp);
             
-            for (int j = 0; j < n - i - 1; j++) {
-                if (lista.get(j).puntuacionTotal < lista.get(j + 1).puntuacionTotal) {
-                    Restaurante temp = lista.get(j);
-                    lista.set(j, lista.get(j + 1));
-                    lista.set(j + 1, temp);
-                    intercambiado = true;
-                }
+            // (Imprimimos el progreso, similar a Python)
+            if (i % 1000 == 0) {
+                 System.out.printf("HeapSort: Re-balanceando heap... %d/%d\r", (n-i), n);
             }
-            
-            if (!intercambiado) {
-                System.out.println("Ordenamiento completado en " + iteracion + " iteraciones.");
-                break;
+
+            // Llamar a heapify en el heap reducido (tamaño 'i')
+            heapify(lista, i, 0);
+        }
+        System.out.println("\nHeapSort completado.");
+    }
+
+    /**
+     * Función auxiliar 'heapify' (o 'hundir').
+     * Asegura que el sub-árbol con raíz en 'i' cumpla la propiedad de Min-Heap.
+     * 'n' es el tamaño del heap.
+     */
+    public static void heapify(ArrayList<Restaurante> lista, int n, int i) {
+        int menor = i;      // Inicializamos 'menor' como la raíz
+        int izq = 2 * i + 1;  // índice del hijo izquierdo
+        int der = 2 * i + 2;  // índice del hijo derecho
+
+        // Si el hijo izquierdo es MENOR que la raíz
+        if (izq < n && lista.get(izq).puntuacionTotal < lista.get(menor).puntuacionTotal) {
+            menor = izq;
+        }
+
+        // Si el hijo derecho es MENOR que el 'menor' actual
+        if (der < n && lista.get(der).puntuacionTotal < lista.get(menor).puntuacionTotal) {
+            menor = der;
+        }
+
+        // Si 'menor' no es la raíz (o sea, si un hijo era más pequeño)
+        if (menor != i) {
+            // Intercambiamos la raíz con el 'menor'
+            Restaurante swap = lista.get(i);
+            lista.set(i, lista.get(menor));
+            lista.set(menor, swap);
+
+            // Recursivamente llamamos a 'heapify' en el sub-árbol afectado
+            heapify(lista, n, menor);
+        }
+    }
+
+
+
+    public static void quickSort(ArrayList<Restaurante> lista) {
+        System.out.println("\nIniciando QuickSort...");
+        // Llama al método recursivo principal
+        recursividad(lista, 0, lista.size() - 1);
+        System.out.println("\nQuickSort completado.");
+    }
+
+    /**
+      Método de partición (esquema Hoare) del código de tu compañera.
+      Hecho 'static' y modificado para usar acceso directo a '.puntuacionTotal'.
+     */
+    public static int compara(ArrayList<Restaurante> arreglo, int inicio, int fin) {
+        // Para hacer el codigo mas dinamico, eligimos un pivote aleatorio
+        int pivote = pivoteAleatorio(arreglo, inicio, fin);
+        // CORRECCIÓN: Se cambió getPuntuacionTotal() por .puntuacionTotal
+        double pivoteValor = arreglo.get(pivote).puntuacionTotal;
+
+        // Variables para los índices que recorrerán el arreglo
+        int i = inicio;
+        int j = fin;
+
+        // Mientras no se crucen los índices
+        while (i <= j) {
+            // CORRECCIÓN: Se cambió getPuntuacionTotal() por .puntuacionTotal
+            while (i <= fin && arreglo.get(i).puntuacionTotal > pivoteValor) {
+                i++;
+            }
+            // CORRECCIÓN: Se cambió getPuntuacionTotal() por .puntuacionTotal
+            while (j >= inicio && arreglo.get(j).puntuacionTotal < pivoteValor) {
+                j--;
+            }
+            // Si no se han cruzado los índices, se realiza el intercambio
+            if (i <= j) {
+                cambio(arreglo, i, j);
+                i++;
+                j--;
             }
         }
+        return i;
+    }
+
+    /**
+      Método para intercambiar dos elementos en el arreglo.
+      Hecho 'static'.
+     */
+    public static void cambio(ArrayList<Restaurante> arreglo, int i, int j) {
+        Restaurante temp = arreglo.get(i);
+        arreglo.set(i, arreglo.get(j));
+        arreglo.set(j, temp);
+    }
+
+    /**
+      Método recursivo principal para aplicar el Quicksort.
+      Hecho 'static'.
+     */
+    public static void recursividad(ArrayList<Restaurante> arreglo, int inicio, int fin) {
+        if (inicio < fin) {
+            int i = compara(arreglo, inicio, fin);
+
+            // Las llamadas recursivas ahora son estáticas
+            if (inicio < i - 1) recursividad(arreglo, inicio, i - 1);
+            if (i < fin) recursividad(arreglo, i, fin);
+        }
+    }
+
+    /**
+      Método para obtener un pivote aleatorio.
+      Hecho 'static'.
+     */
+    public static int pivoteAleatorio(ArrayList<Restaurante> arreglo, int inicio, int fin) {
+        int indiceAleatorio = inicio + (int) (Math.random() * (fin - inicio + 1));
+        return indiceAleatorio;
     }
 
     //Clase para obtener el promedio de los ratings y asi obtener una C (Parte de la formula) con la que trabajar
