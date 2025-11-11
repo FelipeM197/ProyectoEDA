@@ -121,6 +121,166 @@ La fórmula es una "lucha de poder" entre el rating individual (`R`) y el promed
 
 Esta `PuntuacionConfianza` es la columna que usaremos para nuestro análisis de algoritmos de ordenamiento.
 
------
+-----`
+# Multiprocesamiento y Ordenamiento (Parte 2)
+
+## 1. Implementación en Python (Single-Core): Preparación de Datos
+
+La segunda parte del proyecto consiste en replicar la lógica de procesamiento de datos de Java a Python. El objetivo es crear una base de datos limpia idéntica que sirva como punto de entrada para el análisis de algoritmos de ordenamiento.
+
+Para esta implementación, se optó por utilizar la biblioteca **Pandas**, un estándar de facto en el ecosistema de Python para la manipulación y análisis de datos.
+
+---
+
+### Enfoque de Implementación: Pandas para Procesamiento Vectorizado
+
+A diferencia del enfoque de "streaming" (línea por línea) implementado en Java para optimizar el uso de memoria RAM, el enfoque de Python utiliza la biblioteca Pandas, que carga el dataset completo en memoria en una estructura de datos llamada `DataFrame`.
+
+- **Diferencia Clave:** Mientras que la solución de Java (`BufferedReader`) se diseñó para un consumo de memoria mínimo y constante (evitando `OutOfMemoryError`), la solución de Python (`pd.read_csv`) carga todo el millón de filas en la RAM.  
+- **Justificación:** Se asume un entorno con suficiente RAM. A cambio de un mayor consumo de memoria, Pandas ofrece una API de "procesamiento vectorizado" que simplifica enormemente las operaciones de limpieza y transformación de datos, permitiendo aplicar cambios a columnas enteras de una sola vez.
+
+
+### Manejo de Datos "Sucios" con Pandas
+
+Los mismos desafíos de datos corruptos encontrados en la Parte 1 fueron resueltos usando funciones optimizadas de Pandas, que reemplazan los bucles `try-catch` manuales de Java.
+
+- **Problema (Java):** Datos con comillas (`""4.5""`) y espacios (`" 12 "`) que requerían `.replace("\"", "").trim()` por cada línea.
+
+- **Solución (Python):** Se aplicó una "limpieza vectorizada" a todas las columnas de texto simultáneamente:
+
+```python
+# Limpia comillas y espacios en todas las columnas de texto
+datos[col] = datos[col].astype(str).str.replace('"', '', regex=False).str.strip()
+```
+
+- **Problema (Java)**
+Datos no numéricos (`" and Catering"`) y columnas desplazadas (`"3.5"` en la columna de tipo *Integer*) requerían un **doble `try-catch`** para evitar el `NumberFormatException`.
+
+- **Solución (Python**)
+**Pandas** maneja esto de forma más robusta.  
+Se utiliza `pd.to_numeric` con el argumento `errors='coerce'`.  
+Esta función intenta convertir la columna, y cualquier valor que falle (como `" and Catering"`) se transforma automáticamente en `NaN` (*Not a Number*).
+
+```python
+# Convierte a número, los errores se marcan como NaN
+datos['rating'] = pd.to_numeric(datos['rating'], errors='coerce')
+datos['num_reviews'] = pd.to_numeric(datos['num_reviews'], errors='coerce')
+
+# Elimina todas las filas que fallaron la conversión
+datos = datos.dropna(subset=['rating', 'num_reviews'])
+```
+
+Este enfoque elimina eficazmente todas las líneas corruptas o desplazadas sin necesidad de bloques `try-except` explícitos por cada fila.
+
+### Lógica del Proyecto: Replicando la Fórmula en Pandas
+
+La **fórmula de "Puntuación de Confianza"** sigue siendo el núcleo del proyecto.
+
+### Fórmula 
+
+\[
+Puntuación = \left(\frac{v}{v+m} \times R\right) + \left(\frac{m}{v+m} \times C\right)
+\]
+
+
+### Cálculo de C (Promedio Global)
+
+En lugar de una "Pasada 1" manual, **Pandas** calcula el promedio `C` de la columna `rating` (ya limpia) con un simple método:
+
+```python
+C = datos['rating'].mean()
+```
+
+### Aplicación de la Fórmula
+
+La fórmula se aplica a cada fila del **DataFrame** usando el método `.apply(axis=1)`.  
+Este método itera sobre cada fila (`row`) y ejecuta la función `calcular_puntuacion_row`,  
+la cual contiene la **lógica bayesiana idéntica** a la versión implementada en **Java**.
+
+```python
+def calcular_puntuacion_row(row):
+    R = row['rating']
+    v = row['num_reviews']
+    if (v + m) != 0:
+        puntuacion = (v / (v + m)) * R + (m / (v + m)) * C
+    else:
+        puntuacion = 0
+    return round(puntuacion, 2)
+
+# Crea la nueva columna 'puntuacion' aplicando la función
+datos['puntuacion'] = datos.apply(calcular_puntuacion_row, axis=1)
+```
+El **DataFrame resultante**, que contiene las columnas:
+
+- `Organization`
+- `Rating`
+- `NumberReview`
+- `PuntuacionConfianza`
+
+se guarda en el archivo `datos_limpios.csv`.  
+Este archivo sirve como **entrada estandarizada** para la fase de **análisis de algoritmos**.
+
+---
+
+## 2 Análisis de Algoritmos de Ordenamiento (Single-Core)
+
+Esta fase del proyecto (correspondiente a **`AnalisisOrdenamiento.py`**) se centra en **cargar los datos limpios** y **medir el rendimiento** de diferentes algoritmos de ordenamiento.
+
+---
+
+### Carga de Datos y Estructura
+
+El script `datos_limpios.csv` se carga nuevamente usando **Pandas**, pero para la fase de ordenamiento se transforma la estructura de datos.
+
+- `datos.to_dict('records')`: El DataFrame de Pandas se convierte en una lista estándar de diccionarios de Python.
+
+- **Motivo**: Los algoritmos de ordenamiento clásicos (como Bubble Sort y QuickSort) están diseñados para operar sobre listas en memoria, no sobre DataFrames.
+Cada diccionario de la lista representa un restaurante, por ejemplo:
+ ```python
+ {'Organization': 'Taco Bell', 'Rating': 3.5, 'NumReviews': 120, 'Puntuacion': 4.2}
+```
+### Implementación y Comparativa de Algoritmos
+
+El script está diseñado para **comparar el rendimiento** de diferentes algoritmos al ordenar la lista de diccionarios por la variable `puntuacion_total` (calculada en el script).
+
+---
+
+### 🔹 Bubble Sort (`buble_sort`)
+
+Se implementa este **algoritmo clásico**.  
+Aunque es conocido por su ineficiencia en *datasets* grandes (complejidad \( O(n^2) \)),  
+sirve como una **línea base fundamental** para la comparación.
+
+---
+
+### 🔹 QuickSort (`platzhalter`)
+
+El menú incluye una opción para **QuickSort**, un algoritmo mucho más eficiente del tipo **"Divide y Vencerás"**,  
+con una **complejidad promedio** de \( O(n \log n) \).  
+Sirve como una **comparativa de rendimiento más realista** frente a Bubble Sort.
+
+---
+
+### Medición de Rendimiento
+
+Para **cuantificar el rendimiento**, se utiliza la biblioteca `time`.  
+Se registra:
+
+- El tiempo inicial (`time_inicio`) justo antes de llamar a la función de ordenamiento  
+  (por ejemplo, `buble_sort`), y  
+- El tiempo final (`time_fin`) inmediatamente después de completarla.
+
+---
+
+Esto permite **aislar y medir exclusivamente el tiempo de cómputo** (*CPU-Bound*)  
+del algoritmo de ordenamiento, que es la **métrica clave** para el análisis de la **Parte 2**.
+
+---
+
+### Resultado Final
+
+El archivo resultante `datos_ordenados.csv` incluye la **posición (ranking)** final de cada restaurante.
+
+
 
 
