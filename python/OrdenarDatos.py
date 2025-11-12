@@ -5,7 +5,16 @@ import os
 import sys
 import random
 import math
+# IMPORT relacionado con multiprocesamiento
 import multiprocessing as mult
+# Explicación:
+# - Usamos el módulo 'multiprocessing' para crear procesos OS-level (no hilos).
+# - Cada proceso tiene su propia interpretación de Python y memoria; así
+#   evitamos la restricción del GIL (Global Interpreter Lock) para trabajo CPU-bound.
+# - Costes a tener en cuenta: creación de procesos, sincronización y, sobre todo,
+#   la serialización (pickling) de los datos enviados a los workers y la copia de memoria.
+# - Por eso es importante mantener las funciones de worker en el nivel superior del módulo
+#   (no usar funciones anidadas ni lambdas) para que sean "picklables" y puedan enviarse a los workers.
 
 m = 100.0  # Factor de normalización
 
@@ -59,22 +68,46 @@ def quick_sort_paralelo(lista):
     
     # Imprimimos en el proceso 'main' (seguro)
     print("Iniciando QuickSort Paralelo...")
+    # Número de procesos a usar:
     num_nucleos = max(1, mult.cpu_count())
+    # Explicación:
+    # - mult.cpu_count() devuelve el número de CPUs lógicas del sistema.
+    # - Ajustamos con max(1, ...) para proteger contra retornos inesperados.
+    # - En máquinas con hyperthreading, usar exactamente cpu_count() puede o no ser ideal,
+    #   a veces conviene usar cpu_count()-1 para dejar CPU al sistema/ I/O.
     print(f"Usando {num_nucleos} núcleos de CPU...")
     
+    # División de la lista en 'trozos' para enviar a cada proceso.
     n = len(lista)
     tamano_trozo = math.ceil(n / num_nucleos)
     trozos = [lista[i:i+tamano_trozo] for i in range(0, n, tamano_trozo)]
+    # Explicación:
+    # - Hacemos chunking porque pool.map espera iterables de tareas independientes.
+    # - Cada chunk será serializado y enviado al proceso worker. Si los chunks son
+    #   muy grandes, el coste de serialización y copia aumentará. Si son muy pequeños,
+    #   el overhead de scheduling dominará. Elegir tamaño equilibrado es clave.
     print(f"Lista dividida en {len(trozos)} trozos de ~{tamano_trozo} elementos.")
     
+    # Uso del Pool:
     with mult.Pool(processes=num_nucleos) as pool:
         print("Enviando trozos a los núcleos para ordenar (pool.map)...")
         
-        # Ahora llamamos a _quick_sort (nombre original sin 'silencioso')
+        # pool.map aplica la función 'quick_sort' a cada chunk en paralelo y
+        # devuelve una lista con los resultados en el mismo orden de entrada.
+        # Consideraciones importantes:
+        # - 'quick_sort' debe ser una función top-level (definida en el módulo),
+        #   para que multiprocessing pueda picklearla y ejecutarla en procesos hijos.
+        # - Los datos (cada trozo) se picklean y se envían por IPC. Esto implica copia de memoria.
+        # - Evitar estructuras no picklables dentro de los diccionarios (ej. objetos abiertos, locks).
+        # - pool.map sincroniza: esperará a que todos los workers terminen para devolver resultados.
+        #   Si una tarea se bloquea o falla, el map se quedará esperando (posible source de deadlocks
+        #   si hay interdependencias); por eso cada tarea debe ser autónoma.
         trozos_ordenados = pool.map(quick_sort, trozos)
         
         print("Ordenamiento de trozos completado. Fusionando resultados...")
         
+    # Fusionamos los resultados de los workers en el proceso principal.
+    # Atención: la fusión ocurre en el proceso main para evitar trabajo adicional de sincronización.
     lista_final_ordenada = fusionar_multiples_listas(trozos_ordenados)
     return lista_final_ordenada
 
@@ -168,17 +201,18 @@ def heap_sort_paralelo(lista):
     trozos = [lista[i : i + tamano_trozo] for i in range(0, n, tamano_trozo)]
     print(f"Lista dividida en {len(trozos)} trozos de ~{tamano_trozo} elementos.")
 
-    # Crea el Pool de Trabajadores
+    # Crear el Pool de Trabajadores
     with mult.Pool(processes=num_nucleos) as pool:
         
         print("Enviando trozos a los núcleos para ordenar (pool.map)...")
         
-        # Usamos la función _heap_sort (sin 'silencioso')
+        # Igual que en quick_sort_paralelo, pool.map enviará cada trozo a un proceso
+        # que ejecuta la función 'heap_sort'. Los mismos costes y restricciones aplican.
         trozos_ordenados = pool.map(heap_sort, trozos)
         
         print("Ordenamiento de trozos completado. Fusionando resultados...")
 
-    # Fusiona los trozos ordenados
+    # Fusionar los trozos ordenados en el proceso principal
     lista_final_ordenada = fusionar_multiples_listas(trozos_ordenados)
     
     return lista_final_ordenada
@@ -276,5 +310,9 @@ def main():
 
 
 if __name__ == "__main__":
+    # freeze_support() es necesario en Windows para permitir que los procesos hijos se
+    # inicien correctamente cuando el script se ejecuta como script principal.
+    # Sin él, al usar multiprocessing en Windows (spawn) puede fallar al importar el módulo
+    # o ejecutar código en los workers.
     mult.freeze_support()
     main()
