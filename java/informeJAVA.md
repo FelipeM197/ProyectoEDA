@@ -124,142 +124,249 @@ Esta `PuntuacionConfianza` es la columna que usaremos para nuestro análisis de 
 -----`
 # Multiprocesamiento y Ordenamiento (Parte 2)
 
-## 1. Implementación en Python (Single-Core): Preparación de Datos
+## 1. Implementación en Python (Multiprocesamiento): Preparación de Datos
 
-La segunda parte del proyecto consiste en replicar la lógica de procesamiento de datos de Java a Python. El objetivo es crear una base de datos limpia idéntica que sirva como punto de entrada para el análisis de algoritmos de ordenamiento.
+A diferencia de la **implementación monolítica en Java**, la **Parte 2 en Python** se dividió en **dos scripts** para separar las responsabilidades, siguiendo un **enfoque más modular**:
 
-Para esta implementación, se optó por utilizar la biblioteca **Pandas**, un estándar de facto en el ecosistema de Python para la manipulación y análisis de datos.
 
----
+### `procesar_datos.py` (Script de Preparación)
+
+- **Propósito:** Su única tarea es leer el archivo `yelp_database.csv` original, limpiarlo usando **Pandas**, y exportar un archivo CSV intermedio y limpio.  
+- **Salida:** `datos_procesados_py.csv`
+
+
+### `analizar_ordenamiento.py` (Script de Análisis)
+
+- **Propósito:** Lee el archivo `datos_procesados_py.csv` (ya limpio), aplica la **Fórmula de Confianza**, y ejecuta los **algoritmos de ordenamiento en paralelo** para medir el rendimiento.
+
 
 ### Enfoque de Implementación: Pandas para Procesamiento Vectorizado
 
-A diferencia del enfoque de "streaming" (línea por línea) implementado en Java para optimizar el uso de memoria RAM, el enfoque de Python utiliza la biblioteca Pandas, que carga el dataset completo en memoria en una estructura de datos llamada `DataFrame`.
+El primer script (`procesar_datos.py`) se encarga de la limpieza.
 
-- **Diferencia Clave:** Mientras que la solución de Java (`BufferedReader`) se diseñó para un consumo de memoria mínimo y constante (evitando `OutOfMemoryError`), la solución de Python (`pd.read_csv`) carga todo el millón de filas en la RAM.  
-- **Justificación:** Se asume un entorno con suficiente RAM. A cambio de un mayor consumo de memoria, Pandas ofrece una API de "procesamiento vectorizado" que simplifica enormemente las operaciones de limpieza y transformación de datos, permitiendo aplicar cambios a columnas enteras de una sola vez.
+---
 
+### 2.1. Enfoque: Pandas y Carga Selectiva
+
+En lugar del *streaming* utilizado en Java, se usa la biblioteca **Pandas**.  
+Para optimizar el uso de **memoria RAM** (que es el principal problema de Pandas), no se carga el archivo CSV completo, sino únicamente las **tres columnas esenciales** para el análisis de los datos:
+
+```python
+# Carga solo las 3 columnas necesarias, ahorrando RAM
+columnas_a_usar = ['Organization', 'Rating', 'NumberReview']
+datos = pd.read_csv(archivo_original, usecols=columnas_a_usar)
+```
 
 ### Manejo de Datos "Sucios" con Pandas
 
-Los mismos desafíos de datos corruptos encontrados en la Parte 1 fueron resueltos usando funciones optimizadas de Pandas, que reemplazan los bucles `try-catch` manuales de Java.
+Los mismos **desafíos de datos corruptos** de la Parte 1 se resolvieron usando las **funciones vectorizadas de Pandas**, que son el equivalente al `try-catch` de Java:
 
-- **Problema (Java):** Datos con comillas (`""4.5""`) y espacios (`" 12 "`) que requerían `.replace("\"", "").trim()` por cada línea.
+---
 
-- **Solución (Python):** Se aplicó una "limpieza vectorizada" a todas las columnas de texto simultáneamente:
+**Problema (Java)**
+Datos no numéricos o columnas desplazadas que requerían un manejo manual mediante `try-catch`.
 
-```python
-# Limpia comillas y espacios en todas las columnas de texto
-datos[col] = datos[col].astype(str).str.replace('"', '', regex=False).str.strip()
-```
-
-- **Problema (Java)**
-Datos no numéricos (`" and Catering"`) y columnas desplazadas (`"3.5"` en la columna de tipo *Integer*) requerían un **doble `try-catch`** para evitar el `NumberFormatException`.
-
-- **Solución (Python**)
-**Pandas** maneja esto de forma más robusta.  
+**Solución (Python)**
 Se utiliza `pd.to_numeric` con el argumento `errors='coerce'`.  
-Esta función intenta convertir la columna, y cualquier valor que falle (como `" and Catering"`) se transforma automáticamente en `NaN` (*Not a Number*).
+Esta función transforma cualquier dato que no pueda convertir (por ejemplo, `" and Catering"`) en `NaN` (*Not a Number*).
+
 
 ```python
-# Convierte a número, los errores se marcan como NaN
-datos['rating'] = pd.to_numeric(datos['rating'], errors='coerce')
-datos['num_reviews'] = pd.to_numeric(datos['num_reviews'], errors='coerce')
-
-# Elimina todas las filas que fallaron la conversión
-datos = datos.dropna(subset=['rating', 'num_reviews'])
+datos['Rating'] = pd.to_numeric(datos['Rating'], errors='coerce')
+datos['NumberReview'] = pd.to_numeric(datos['NumberReview'], errors='coerce')
 ```
 
-Este enfoque elimina eficazmente todas las líneas corruptas o desplazadas sin necesidad de bloques `try-except` explícitos por cada fila.
-
-### Lógica del Proyecto: Replicando la Fórmula en Pandas
-
-La **fórmula de "Puntuación de Confianza"** sigue siendo el núcleo del proyecto.
-
-### Fórmula 
-
-\[
-Puntuación = \left(\frac{v}{v+m} \times R\right) + \left(\frac{m}{v+m} \times C\right)
-\]
-
-
-### Cálculo de C (Promedio Global)
-
-En lugar de una "Pasada 1" manual, **Pandas** calcula el promedio `C` de la columna `rating` (ya limpia) con un simple método:
+**Filtrado**: Finalmente, se eliminan todas las filas corruptas (NaN) con una sola línea, garantizando un dataset limpio
 
 ```python
-C = datos['rating'].mean()
+datos = datos.dropna(subset=['Rating', 'NumberReview'])
 ```
 
-### Aplicación de la Fórmula
+El script guarda el resultado (`datos_procesados_py.csv`), que sirve como punto de entrada estandarizado para la fase de análisis.
 
-La fórmula se aplica a cada fila del **DataFrame** usando el método `.apply(axis=1)`.  
-Este método itera sobre cada fila (`row`) y ejecuta la función `calcular_puntuacion_row`,  
-la cual contiene la **lógica bayesiana idéntica** a la versión implementada en **Java**.
+## Fase 2: Análisis y Ordenamiento Paralelo (Script 2)
+
+El segundo script (`analizar_ordenamiento.py`) carga los datos limpios y realiza el trabajo pesado.
+
+---
+
+### 3.1. Carga y Aplicación de la Fórmula
+
+- **Carga:** El script lee `datos_procesados_py.csv` en un **DataFrame de Pandas**.  
+- **Cálculo de C:** El *Rating Promedio Global* (**C**) se calcula de forma optimizada utilizando **Pandas**.
+
+```python 
+C = datos['Rating'].mean()
+```
+**Conversión de Estructura**
+
+Para usar **algoritmos de ordenamiento clásicos**, el **DataFrame** se convierte en una **lista de diccionarios de Python**, una estructura más nativa y adecuada para este tipo de algoritmos.
 
 ```python
-def calcular_puntuacion_row(row):
-    R = row['rating']
-    v = row['num_reviews']
+lista_restaurantes = datos.to_dict('records')
+```
+**Cálculo de Fórmula**
+
+El script **itera sobre la lista** y aplica la **Fórmula de Confianza** a cada restaurante,  
+guardando el resultado en una nueva clave llamada **`puntuacion_total`**.
+
+```python
+# Bucle que aplica la fórmula a la lista de diccionarios
+for r in lista_restaurantes:
+    R = r.get('Rating', 0)
+    v = r.get('NumberReview', 0)
+    # ... (manejo de tipos) ...
     if (v + m) != 0:
-        puntuacion = (v / (v + m)) * R + (m / (v + m)) * C
+        r['puntuacion_total'] = (v / (v + m)) * R + (m / (v + m)) * C
     else:
-        puntuacion = 0
-    return round(puntuacion, 2)
-
-# Crea la nueva columna 'puntuacion' aplicando la función
-datos['puntuacion'] = datos.apply(calcular_puntuacion_row, axis=1)
+        r['puntuacion_total'] = 0.0
 ```
-El **DataFrame resultante**, que contiene las columnas:
 
-- `Organization`
-- `Rating`
-- `NumberReview`
-- `PuntuacionConfianza`
+### Librerías y Funciones Clave
 
-se guarda en el archivo `datos_limpios.csv`.  
-Este archivo sirve como **entrada estandarizada** para la fase de **análisis de algoritmos**.
+Para lograr el **paralelismo**, se utilizaron las siguientes **librerías** y **funciones auxiliares**:
 
 ---
 
-## 2 Análisis de Algoritmos de Ordenamiento (Single-Core)
+- **`multiprocessing` (Librería):**  
+  Es el núcleo del paralelismo en Python. Permite crear un *Pool* de procesos (trabajadores) que se ejecutan en diferentes núcleos de CPU.
 
-Esta fase del proyecto (correspondiente a **`AnalisisOrdenamiento.py`**) se centra en **cargar los datos limpios** y **medir el rendimiento** de diferentes algoritmos de ordenamiento.
+- **`math` (Librería):**  
+  Se usa `math.ceil` para calcular el tamaño de los *chunks* (trozos) de datos de manera uniforme.
+
+- **`fusionar_dos_listas(listaA, listaB)` (Función Auxiliar):**  
+  Función manual crucial que toma dos listas ya ordenadas y las fusiona en una sola lista ordenada (en orden descendente).
+
+- **`fusionar_multiples_listas(listas_ordenadas)` (Función Auxiliar):**  
+  Implementa el paso de **reducción**.  
+  Toma la lista de *N chunks* ordenados (provenientes de los procesos paralelos) y los fusiona secuencialmente usando `fusionar_dos_listas`.
+
+## Estrategia de Multiprocesamiento: "Divide, Mapea, Reduce"
+
+El núcleo del proyecto es la **implementación de ordenamiento paralelo**.  
+Las funciones `quick_sort_paralelo` y `heap_sort_paralelo` implementan esta estrategia de **tres pasos**:
 
 ---
 
-### Carga de Datos y Estructura
+### División (*Divide*)
 
-El script `datos_limpios.csv` se carga nuevamente usando **Pandas**, pero para la fase de ordenamiento se transforma la estructura de datos.
+La lista principal de aproximadamente **1 millón de restaurantes** se divide en **N "chunks" (trozos)**,  
+donde **N** es el número de núcleos de CPU disponibles (`mult.cpu_count()`).
 
-- `datos.to_dict('records')`: El DataFrame de Pandas se convierte en una lista estándar de diccionarios de Python.
-
-- **Motivo**: Los algoritmos de ordenamiento clásicos (como Bubble Sort y QuickSort) están diseñados para operar sobre listas en memoria, no sobre DataFrames.
-Cada diccionario de la lista representa un restaurante, por ejemplo:
- ```python
- {'Organization': 'Taco Bell', 'Rating': 3.5, 'NumReviews': 120, 'Puntuacion': 4.2}
+```python
+num_nucleos = max(1, mult.cpu_count())
+tamano_trozo = math.ceil(n / num_nucleos)
+trozos = [lista[i:i+tamano_trozo] for i in range(0, n, tamano_trozo)]
 ```
-### Implementación y Comparativa de Algoritmos
 
-El script está diseñado para **comparar el rendimiento** de diferentes algoritmos al ordenar la lista de diccionarios por la variable `puntuacion_total` (calculada en el script).
+### Mapeo (*Map - Paralelo*)
+
+Este es el paso que se ejecuta **en paralelo**.  
+Se crea un **Pool de procesos** y se utiliza `pool.map()`.  
+Esta función envía un *chunk* a cada núcleo de CPU disponible.
+
+Cada núcleo ejecuta de forma **independiente y simultánea** el algoritmo de ordenamiento secuencial  
+(ya sea `heap_sort` o `quick_sort`) sobre su propio *chunk*.
+
+```python
+with mult.Pool(processes=num_nucleos) as pool:
+    print("Enviando trozos a los núcleos para ordenar (pool.map)...")
+    
+    # Cada núcleo ejecuta 'heap_sort' en su 'trozo'
+    trozos_ordenados = pool.map(heap_sort, trozos)
+```
+## Detalle de los Algoritmos de Ordenamiento Implementados
 
 ---
 
-### 🔹 Bubble Sort (`buble_sort`)
+### Algoritmo 1: `heap_sort(lista)`
 
-Se implementa este **algoritmo clásico**.  
-Aunque es conocido por su ineficiencia en *datasets* grandes (complejidad \( O(n^2) \)),  
-sirve como una **línea base fundamental** para la comparación.
+- **Descripción:**  
+  Implementación clásica de **HeapSort** con complejidad **O(n log n)**.
+
+- **Lógica:**  
+  Primero construye un **Min-Heap** (el elemento más pequeño en la raíz)  
+  y luego extrae los elementos uno por uno para construir la lista ordenada.
+
+- **Uso:**  
+  Se ejecuta en **paralelo**, donde cada núcleo aplica `heap_sort` a su propio *chunk*.
+
+  ```python
+  def heap_sort_paralelo(lista):
+    """
+    Orquesta el ordenamiento HeapSort O(n log n) en paralelo.
+    """
+    print("Iniciando HeapSort Paralelo...")
+    
+    num_nucleos = mult.cpu_count()
+    print(f"Usando {num_nucleos} núcleos de CPU...")
+    
+    n = len(lista)
+    tamano_trozo = math.ceil(n / num_nucleos)
+    
+    trozos = [lista[i : i + tamano_trozo] for i in range(0, n, tamano_trozo)]
+    print(f"Lista dividida en {len(trozos)} trozos de ~{tamano_trozo} elementos.")
+
+    with mult.Pool(processes=num_nucleos) as pool:
+        print("Enviando trozos a los núcleos para ordenar (pool.map)...")
+        
+        # Llama a la función secuencial 'heap_sort' en cada núcleo
+        trozos_ordenados = pool.map(heap_sort, trozos)
+        
+        print("Ordenamiento de trozos completado. Fusionando resultados...")
+
+    # Llama a la fusión (Reduce)
+    lista_final_ordenada = fusionar_multiples_listas(trozos_ordenados)
+    
+    return lista_final_ordenada
+  ```
 
 ---
 
-### 🔹 QuickSort (`platzhalter`)
+### Algoritmo 2: `quick_sort(lista)` (*MergeSort Iterativo*)
 
-El menú incluye una opción para **QuickSort**, un algoritmo mucho más eficiente del tipo **"Divide y Vencerás"**,  
-con una **complejidad promedio** de \( O(n \log n) \).  
-Sirve como una **comparativa de rendimiento más realista** frente a Bubble Sort.
+- **Descripción:**  
+  Aunque la función se llama `quick_sort`, la implementación corresponde a un  
+  **MergeSort Iterativo (no recursivo)**.  
+  Esto resulta conceptualmente ideal, ya que la **estrategia de paralelismo** también sigue un enfoque de **MergeSort**.
 
----
+- **Lógica:**  
+  No utiliza recursividad; en su lugar, emplea un bucle `while` que duplica el tamaño (`width`)  
+  de las sublistas a fusionar hasta que toda la lista queda ordenada.
+
+- **Rendimiento:**  
+  Complejidad **O(n log n)**.
+
+- **Uso:**  
+  Es la alternativa a `heap_sort` que cada núcleo puede ejecutar en el paso de **Mapeo**.
+
+```python
+  def quick_sort_paralelo(lista):
+    if not lista:
+        return lista
+    
+    print("Iniciando QuickSort Paralelo...")
+    num_nucleos = max(1, mult.cpu_count())
+    print(f"Usando {num_nucleos} núcleos de CPU...")
+    
+    n = len(lista)
+    tamano_trozo = math.ceil(n / num_nucleos)
+    trozos = [lista[i:i+tamano_trozo] for i in range(0, n, tamano_trozo)]
+    print(f"Lista dividida en {len(trozos)} trozos de ~{tamano_trozo} elementos.")
+    
+    with mult.Pool(processes=num_nucleos) as pool:
+        print("Enviando trozos a los núcleos para ordenar (pool.map)...")
+        
+        # Llama a la función secuencial 'quick_sort' en cada núcleo
+        trozos_ordenados = pool.map(quick_sort, trozos)
+        
+        print("Ordenamiento de trozos completado. Fusionando resultados...")
+        
+    # Llama a la fusión (Reduce)
+    lista_final_ordenada = fusionar_multiples_listas(trozos_ordenados)
+    return lista_final_ordenada
+  ```
+
 
 ### Medición de Rendimiento
 
@@ -267,19 +374,19 @@ Para **cuantificar el rendimiento**, se utiliza la biblioteca `time`.
 Se registra:
 
 - El tiempo inicial (`time_inicio`) justo antes de llamar a la función de ordenamiento  
-  (por ejemplo, `buble_sort`), y  
+  (por ejemplo, `quick_sort`), y  
 - El tiempo final (`time_fin`) inmediatamente después de completarla.
 
 ---
 
 Esto permite **aislar y medir exclusivamente el tiempo de cómputo** (*CPU-Bound*)  
-del algoritmo de ordenamiento, que es la **métrica clave** para el análisis de la **Parte 2**.
+del algoritmo de ordenamiento, que es la **métrica clave** para el análisis de la **Parte 2 (Multiprocesamiento)**.
 
 ---
 
 ### Resultado Final
 
-El archivo resultante `datos_ordenados.csv` incluye la **posición (ranking)** final de cada restaurante.
+El archivo resultante `datos_ordenados_py.csv` incluye la **posición (ranking)** final de cada restaurante.
 
 
 
