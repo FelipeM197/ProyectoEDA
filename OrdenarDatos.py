@@ -18,6 +18,7 @@ try:
 except locale.Error:
     locale.setlocale(locale.LC_ALL, '')
 
+# Ordenamos de forma descendente por rating usando QuickSort
 def quick_sort(lista):
     n = len(lista)
     if n <= 1:
@@ -28,7 +29,7 @@ def quick_sort(lista):
         j = 0
         merged = []
         while i < len(left) and j < len(right):
-            if left[i].get('puntuacion_total', 0) > right[j].get('puntuacion_total', 0):
+            if left[i].get('Rating', 0) > right[j].get('Rating', 0):
                 merged.append(left[i]); i += 1
             else:
                 merged.append(right[j]); j += 1
@@ -108,7 +109,7 @@ def fusionar_dos_listas(listaA, listaB):
     # Recorremos ambas listas mientras haya elementos en las dos
     while i < len(listaA) and j < len(listaB):
         # (Orden DESCENDENTE)
-        if listaA[i]['puntuacion_total'] > listaB[j]['puntuacion_total']:
+        if listaA[i]['Rating'] > listaB[j]['Rating']:
             lista_fusionada.append(listaA[i])
             i += 1 # Avanzamos el puntero A
         else:
@@ -142,9 +143,9 @@ def _heapify_worker(lista, n, i):
     izq = 2 * i + 1
     der = 2 * i + 2
 
-    if izq < n and lista[izq]['puntuacion_total'] < lista[menor]['puntuacion_total']:
+    if izq < n and lista[izq]['Rating'] < lista[menor]['Rating']:
         menor = izq
-    if der < n and lista[der]['puntuacion_total'] < lista[menor]['puntuacion_total']:
+    if der < n and lista[der]['Rating'] < lista[menor]['Rating']:
         menor = der
 
     if menor != i:
@@ -183,6 +184,19 @@ def heap_sort_paralelo(lista):
     
     return lista_final_ordenada
 
+def imprimir_lista(lista, n=20):
+    """Función para imprimir los primeros 'n' elementos mostrando solo nombre y rating"""
+    print(f"Mostrando los primeros {n} elementos de la lista:")
+    for i, item in enumerate(lista[:n]):
+        nombre = item.get('Organization') or item.get('Name') or 'N/A'
+        rating = item.get('Rating', 'N/A')
+        try:
+            rating_val = float(rating)
+            rating_str = f"{rating_val:.2f}"
+        except Exception:
+            rating_str = str(rating)
+        print(f"{i + 1}. {nombre} — Rating: {rating_str}")
+        
 
 def main():
     """Función principal del programa"""
@@ -272,6 +286,9 @@ def main():
         return
 
     print(f"\nTiempo total (Procesamiento + Ordenamiento): {tiempo_total:.2f} ms")
+
+    #Imprimir los primeros 20 elementos
+    imprimir_lista(lista_restaurantes, n=20)
     print("Programa finalizado.")
 
 
