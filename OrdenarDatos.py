@@ -18,7 +18,7 @@ try:
 except locale.Error:
     locale.setlocale(locale.LC_ALL, '')
 
-# Ordenamos de forma descendente por rating usando QuickSort
+# Ordenamos de forma descendente por rating 
 def quick_sort(lista):
     n = len(lista)
     if n <= 1:
