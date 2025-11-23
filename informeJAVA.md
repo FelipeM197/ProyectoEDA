@@ -17,7 +17,7 @@ El objetivo dentro de nuestro caso será conocer cuáles son los restaurantes m�
 
 - Antes: ID, Time_GMT, Phone, Organization, OLF, Rating, NumberReview, Category, Country, CountryCode, State, City, Street, Building
 
-- Después: Posición, Nombre, Rating, Número de reseñas
+- Después: Organization, Rating, NumberReview
 
 Con los datos listos se diseñó una fórmula con el objetivo de conseguir rankings más "fiables". Esto se debe a que dentro del dataset existen muchos restaurantes con 5 estrellas pero solo 1 o 2 reseñas, por lo que no podríamos darles un puesto alto en nuestro ranking.
 
@@ -91,7 +91,7 @@ Cuando $v$ es grande (ej: $v = 1000$): $\frac{100}{1100} \approx 0.09$ → el pr
 
 - **mult.Pool():** Explicar que esto crea los "trabajadores" (uno por núcleo)
 - **pool.map():** Explicar que este es el comando que asigna un trozo de datos a cada trabajador y los ejecuta en paralelo
-- **Funciones "Silenciosas":** Explicar por qué fue necesario crear _quick_sort_silencioso y _heap_sort_silencioso (para evitar el "deadlock" de la consola)
+- **Funciones "Silenciosas":** Explicar por qué fue necesario crear _quick_sort_silencioso y_heap_sort_silencioso (para evitar el "deadlock" de la consola)
 - **Fusión Manual:** Explicar que la función fusionar_dos_listas fue necesaria para ensamblar los trozos ordenados al final
 
 ## 6. Resultados y Tablas Comparativas
