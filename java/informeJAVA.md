@@ -387,7 +387,3 @@ del algoritmo de ordenamiento, que es la **métrica clave** para el análisis de
 ### Resultado Final
 
 El archivo resultante `datos_ordenados_py.csv` incluye la **posición (ranking)** final de cada restaurante.
-
-
-
-

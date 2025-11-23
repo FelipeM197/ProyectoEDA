@@ -12,104 +12,154 @@ public class Ordenar {
     public static void main(String[] args) {
         Locale.setDefault(Locale.US); 
         Scanner scanner = new Scanner(System.in);
-        String archivoLimpio = "datos_procesados.csv";
-        String archivoSalida = "restaurantes_ordenados.csv";
+        // Asegurar que leamos y escribamos dentro de la carpeta 'java' del proyecto
+        String baseDir = System.getProperty("user.dir") + File.separator + "java";
+        String archivoLimpio = baseDir + File.separator + "datos_procesados.csv";
+        String archivoQuickSort = baseDir + File.separator + "datos_ordenados_quick_sort.csv";
+        String archivoSalida = baseDir + File.separator + "restaurantes_ordenados.csv";
 
-        // Lectura de los datos
-        System.out.println("Cargando datos a memoria desde: " + archivoLimpio);
-        ArrayList<Restaurante> listaRestaurantes = new ArrayList<>(1_000_000);
-
-        try (BufferedReader br = new BufferedReader(new FileReader(archivoLimpio))) {
-            String linea;
-            br.readLine(); // Saltamos la cabecera 
-
-            while ((linea = br.readLine()) != null) {
-                String[] partes = linea.split(",");
-                try{
-                    String nombreREstaurante = partes[0];
-                    double rating = Double.parseDouble(partes[1]);   
-                    int numeroResenas = Integer.parseInt(partes[2]);
-                    Restaurante restaurante = new Restaurante(nombreREstaurante, rating, numeroResenas);
-                    listaRestaurantes.add(restaurante);
-
-                }catch (NumberFormatException e){
-                    System.err.println("Saltando línea mal formada: " + e.getMessage());
-                }
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        
-        System.out.println("Carga completa. Se leyeron " + listaRestaurantes.size() + " registros.");
-
-        System.out.println("\n=== MENÚ DE ORDENAMIENTO ===");
-        System.out.println("1. Ordenar con HeapSort");
-        System.out.println("2. Ordenar con QuickSort");
+        // Lectura previa de datos (solo usada por opción 1)
+        System.out.println("=== MENÚ DE ORDENAMIENTO ===");
+        System.out.println("1. Generar archivo QuickSort (ordenar por Número de Reseñas)");
+        System.out.println("2. Ejecutar HeapSort (usar archivo QuickSort -> calcular fórmula -> ordenar por puntuación)");
         System.out.print("Seleccione el algoritmo (1-2): ");
-        
         int opcion = scanner.nextInt();
-        
-        // Iniciamos el cronómetro después de la selección
-        long tiempoInicio = System.nanoTime();
-        
-        // Calculamos C (promedio global) para la fórmula bayesiana
-        double sumaTotalRatings = 0.0;
-        for (Restaurante r : listaRestaurantes) {
-            sumaTotalRatings += r.rating;
-        }
-        double C = sumaTotalRatings / listaRestaurantes.size();
-        System.out.println("C calculado: " + C);
-        
-        // Aplicamos la fórmula bayesiana a cada restaurante:
-        // Score = (v/(v+m) * R) + (m/(v+m) * C)
-        // Donde: v = número de reviews, R = rating individual, C = promedio global
-        for (Restaurante r : listaRestaurantes) {
-            double R = r.rating;
-            int v = r.numeroResenas;
-            r.puntuacionTotal = (v / (v + m)) * R + (m / (v + m)) * C;
-        }
-        
 
-        
-        long tiempoFin = System.nanoTime();
-        double tiempoTotalMS = (tiempoFin - tiempoInicio) / 1_000_000.0;
-        
-        // Menu principal
-        System.out.println("\nIniciando ordenamiento...");
-        switch(opcion) {
-            case 1:
-                System.out.println("Ejecutando HeapSort ");
-                heapSort(listaRestaurantes);
-                break;
-            case 2:
-                System.out.println("Ejecutando QuickSort");
-                quickSort(listaRestaurantes);
-                break;
-            default:
-                System.out.println("Opción no válida.");
+        if (opcion == 1) {
+            System.out.println("Cargando datos a memoria desde: " + archivoLimpio);
+            ArrayList<Restaurante> listaRestaurantes = new ArrayList<>(1_000_000);
+            try (BufferedReader br = new BufferedReader(new FileReader(archivoLimpio))) {
+                String linea;
+                br.readLine(); // Saltamos la cabecera 
+                while ((linea = br.readLine()) != null) {
+                    String[] partes = linea.split(",");
+                    try{
+                        String nombre = partes[0];
+                        double rating = Double.parseDouble(partes[1]);   
+                        int numeroResenas = Integer.parseInt(partes[2]);
+                        Restaurante restaurante = new Restaurante(nombre, rating, numeroResenas);
+                        listaRestaurantes.add(restaurante);
+                    } catch (Exception e){
+                        // Ignorar líneas mal formadas
+                    }
+                }
+            } catch (IOException e) {
+                System.err.println("Error leyendo " + archivoLimpio + ": " + e.getMessage());
                 return;
-        }
-
-        // Generar archivo solo si se realizó el ordenamiento
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(archivoSalida))) {
-            writer.write("Posición,Nombre,Rating,NumeroReseñas,PuntuaciónTotal\n");
-            for (int i = 0; i < listaRestaurantes.size(); i++) {
-                Restaurante r = listaRestaurantes.get(i);
-                writer.write(String.format("%d,%s,%.2f,%d,%.4f\n", 
-                    i+1, r.nombre, r.rating, r.numeroResenas, r.puntuacionTotal));
             }
-            System.out.println("\nResultados guardados en: " + archivoSalida);
-        } catch (IOException e) {
-            System.err.println("Error al escribir resultados: " + e.getMessage());
+
+            if (listaRestaurantes.isEmpty()) {
+                System.out.println("No se cargaron registros. Abortando.");
+                return;
+            }
+
+            System.out.println("Carga completa. Se leyeron " + listaRestaurantes.size() + " registros.");
+            System.out.println("Iniciando QuickSort por NumberReview (genera archivo intermedio)...");
+            long t0 = System.nanoTime();
+
+            // QuickSort por número de reseñas (no calcula fórmula)
+            recursividadReviews(listaRestaurantes, 0, listaRestaurantes.size() - 1);
+
+            long t1 = System.nanoTime();
+            double tiempoSeg = (t1 - t0) / 1_000_000_000.0;
+            System.out.printf("QuickSort (por reseñas) completado en %.4f segundos\n", tiempoSeg);
+
+            // Escribir archivo intermedio con la estructura esperada
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(archivoQuickSort))) {
+                // El archivo intermedio NO incluye la columna PuntuaciónTotal
+                writer.write("Posición,Nombre,Rating,NumeroReseñas\n");
+                for (int i = 0; i < listaRestaurantes.size(); i++) {
+                    Restaurante r = listaRestaurantes.get(i);
+                    writer.write(String.format("%d,%s,%.2f,%d\n",
+                        i+1, r.nombre, r.rating, r.numeroResenas));
+                }
+                System.out.println("Archivo QuickSort generado: " + archivoQuickSort);
+            } catch (IOException e) {
+                System.err.println("Error al escribir " + archivoQuickSort + ": " + e.getMessage());
+            }
+            // Imprimir Top 20 únicos
+            System.out.println("\n=== TOP 20 RESTAURANTES (por NumberReview) ===");
+            imprimirTop20Unicos(listaRestaurantes, false);
+
+        } else if (opcion == 2) {
+            // Verificamos que exista el archivo generado por QuickSort
+            File f = new File(archivoQuickSort);
+            if (!f.exists()) {
+                System.out.println("¡ALERTA! El archivo " + archivoQuickSort + " no existe.");
+                System.out.println("Genere primero el archivo QuickSort (opción 1).");
+                return;
+            }
+
+            // Cargar lista desde archivoQuickSort
+            ArrayList<Restaurante> listaRestaurantes = new ArrayList<>(1_000_000);
+            try (BufferedReader br = new BufferedReader(new FileReader(archivoQuickSort))) {
+                String linea;
+                br.readLine(); // cabecera
+                while ((linea = br.readLine()) != null) {
+                    String[] partes = linea.split(",");
+                    try{
+                        // Formato esperado: Posición,Nombre,Rating,NumeroReseñas,PuntuaciónTotal
+                        String nombre = partes[1];
+                        double rating = Double.parseDouble(partes[2]);
+                        int numeroResenas = Integer.parseInt(partes[3]);
+                        Restaurante restaurante = new Restaurante(nombre, rating, numeroResenas);
+                        listaRestaurantes.add(restaurante);
+                    } catch (Exception e) {
+                        // ignorar línea mal formada
+                    }
+                }
+            } catch (IOException e) {
+                System.err.println("Error leyendo " + archivoQuickSort + ": " + e.getMessage());
+                return;
+            }
+
+            if (listaRestaurantes.isEmpty()) {
+                System.out.println("No se cargaron registros desde " + archivoQuickSort);
+                return;
+            }
+
+            System.out.println("Cálculo de C (promedio global) y aplicación de la fórmula...");
+            long t0 = System.nanoTime();
+
+            double sumaTotalRatings = 0.0;
+            for (Restaurante r : listaRestaurantes) sumaTotalRatings += r.rating;
+            double C = sumaTotalRatings / listaRestaurantes.size();
+            System.out.println("C calculado: " + C);
+
+            for (Restaurante r : listaRestaurantes) {
+                double R = r.rating;
+                int v = r.numeroResenas;
+                r.puntuacionTotal = (v / (v + m)) * R + (m / (v + m)) * C;
+            }
+
+            // Ordenar por puntuacionTotal con HeapSort
+            System.out.println("Ejecutando HeapSort por puntuación total...");
+            heapSort(listaRestaurantes);
+
+            long t1 = System.nanoTime();
+            double tiempoSeg = (t1 - t0) / 1_000_000_000.0;
+            System.out.printf("HeapSort completado en %.4f segundos\n", tiempoSeg);
+
+            // Escribir archivo final (conserva duplicados en el archivo)
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(archivoSalida))) {
+                writer.write("Posición,Nombre,Rating,NumeroReseñas,PuntuaciónTotal\n");
+                for (int i = 0; i < listaRestaurantes.size(); i++) {
+                    Restaurante r = listaRestaurantes.get(i);
+                    writer.write(String.format("%d,%s,%.2f,%d,%.4f\n",
+                        i+1, r.nombre, r.rating, r.numeroResenas, r.puntuacionTotal));
+                }
+                System.out.println("Archivo final generado: " + archivoSalida);
+            } catch (IOException e) {
+                System.err.println("Error al escribir " + archivoSalida + ": " + e.getMessage());
+            }
+            // Imprimir Top 20 únicos con puntuación
+            System.out.println("\n=== TOP 20 RESTAURANTES (por PuntuaciónTotal) ===");
+            imprimirTop20Unicos(listaRestaurantes, true);
+
+        } else {
+            System.out.println("Opción no válida.");
         }
 
-        // Resultados finales
-        System.out.printf("\nTiempo total: %.2f segundos\n", tiempoTotalMS/1000.0);
-        System.out.println("\n=== TOP 10 RESTAURANTES ===");
-        for (int i = 0; i < 10 && i < listaRestaurantes.size(); i++) {
-            System.out.println((i+1) + ". " + listaRestaurantes.get(i));
-        }
-        
         scanner.close();
     }
     
@@ -294,6 +344,64 @@ public class Ordenar {
             return sumaTotalRatings / conteoTotalLineas;
         } else {
             return 0.0; // En caso de que no haya lineas 
+        }
+    }
+
+    // Nuevo: comparador/recursividad quicksort por NumberReview (no tocar comentarios existentes)
+    public static int comparaReviews(ArrayList<Restaurante> arreglo, int inicio, int fin) {
+        int pivote = pivoteAleatorio(arreglo, inicio, fin);
+        int pivoteValor = arreglo.get(pivote).numeroResenas;
+        int i = inicio;
+        int j = fin;
+        while (i <= j) {
+            while (i <= fin && arreglo.get(i).numeroResenas > pivoteValor) i++;
+            while (j >= inicio && arreglo.get(j).numeroResenas < pivoteValor) j--;
+            if (i <= j) {
+                cambio(arreglo, i, j);
+                i++; j--;
+            }
+        }
+        return i;
+    }
+
+    public static void recursividadReviews(ArrayList<Restaurante> arreglo, int inicio, int fin) {
+        if (inicio < fin) {
+            int i = comparaReviews(arreglo, inicio, fin);
+            if (inicio < i - 1) recursividadReviews(arreglo, inicio, i - 1);
+            if (i < fin) recursividadReviews(arreglo, i, fin);
+        }
+    }
+
+    // Imprime en consola el Top 20 de restaurantes sin nombres repetidos.
+    // Si porPuntuacion == true muestra Score, Reviews y Rating; si es false muestra Reviews y Rating.
+    public static void imprimirTop20Unicos(ArrayList<Restaurante> lista, boolean porPuntuacion) {
+        ArrayList<String> nombresVistosLocal = new ArrayList<>(20); // como mucho guardaremos 20 nombres
+        int mostrados = 0;
+        for (Restaurante restauranteActual : lista) {
+            String nombreNormalizadoLocal = (restauranteActual.nombre == null) ? "" : restauranteActual.nombre.trim().toLowerCase();
+            boolean yaVisto = false;
+            // búsqueda lineal en la lista pequeña nombresVistosLocal (máx 20 elementos)
+            for (String n : nombresVistosLocal) {
+                if (n.equals(nombreNormalizadoLocal)) {
+                    yaVisto = true;
+                    break;
+                }
+            }
+            if (yaVisto) continue;
+
+            nombresVistosLocal.add(nombreNormalizadoLocal);
+            mostrados++;
+            if (porPuntuacion) {
+                System.out.printf("%2d. %-35s Score: %.4f  Reviews: %d  Rating: %.2f\n", mostrados,
+                    (restauranteActual.nombre.length() > 32 ? restauranteActual.nombre.substring(0, 32) + ".." : restauranteActual.nombre),
+                    restauranteActual.puntuacionTotal, restauranteActual.numeroResenas, restauranteActual.rating);
+            } else {
+                System.out.printf("%2d. %-40s Reviews: %d  Rating: %.2f\n", mostrados,
+                    (restauranteActual.nombre.length() > 37 ? restauranteActual.nombre.substring(0, 37) + ".." : restauranteActual.nombre),
+                    restauranteActual.numeroResenas, restauranteActual.rating);
+            }
+
+            if (mostrados >= 20) break;
         }
     }
 }
