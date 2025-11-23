@@ -214,9 +214,9 @@ def main():
     lista_restaurantes = datos.to_dict('records')
     C = datos['Rating'].mean()
 
-    print("\nMenu de opciones de ordenamiento (Paralelo):")
-    print("1. QuickSort (Generar archivo ordenado por reseñas)")
-    print("2. HeapSort  (Leer archivo de QuickSort -> Fórmula -> Ordenar por Puntuación)")
+    print("\nMenu de opciones de ordenamiento:")
+    print("1. QuickSort por numero de reseñas")
+    print("2. HeapSort  por puntuacion total, desde el archivo de QuickSort")
 
     try:
         opcion = int(input("Seleccione una opción (1-2): "))
@@ -245,7 +245,7 @@ def main():
         
         # Verificar si el archivo de QuickSort existe, si no, generarlo
         if not os.path.exists(archivo_quick_sort):
-            print(f"¡ATENCIÓN! El archivo '{archivo_quick_sort}' no existe.")
+            print(f"El archivo '{archivo_quick_sort}' no existe.")
             print("Ejecutando QuickSort automáticamente para generarlo primero...")
             
             lista_temp = ordenar_paralelo(lista_restaurantes, 'quicksort', 'NumberReview')

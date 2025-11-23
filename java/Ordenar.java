@@ -20,8 +20,8 @@ public class Ordenar {
 
         // Lectura previa de datos (solo usada por opción 1)
         System.out.println("=== MENÚ DE ORDENAMIENTO ===");
-        System.out.println("1. Generar archivo QuickSort (ordenar por Número de Reseñas)");
-        System.out.println("2. Ejecutar HeapSort (usar archivo QuickSort -> calcular fórmula -> ordenar por puntuación)");
+        System.out.println("1. Generar archivo QuickSort por numero de reseñas");
+        System.out.println("2. Ejecutar HeapSort por puntuacion total (desde archivo QuickSort)");
         System.out.print("Seleccione el algoritmo (1-2): ");
         int opcion = scanner.nextInt();
 
@@ -85,7 +85,7 @@ public class Ordenar {
             // Verificamos que exista el archivo generado por QuickSort
             File f = new File(archivoQuickSort);
             if (!f.exists()) {
-                System.out.println("¡ALERTA! El archivo " + archivoQuickSort + " no existe.");
+                System.out.println("El archivo " + archivoQuickSort + " no existe.");
                 System.out.println("Genere primero el archivo QuickSort (opción 1).");
                 return;
             }
