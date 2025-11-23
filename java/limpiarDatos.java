@@ -4,6 +4,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Locale;
+import java.io.File;
 
 // Nombre de clase cambiado a Mayúscula (convención de Java)
 public class limpiarDatos {
@@ -12,8 +13,10 @@ public class limpiarDatos {
         // Establecemos las reglas de estados unidos por los decimales 
         // Aqui se pone con coma en vez de punto, cosa que genera conflictos al leer y escribir el csv
         Locale.setDefault(Locale.US);       
-        String archivoOriginal = "yelp_database.csv"; 
-        String archivoLimpio = "datos_procesados.csv";
+        // Asegurar que los archivos se tomen desde la carpeta 'java' donde está este archivo
+        String baseDir = System.getProperty("user.dir") + File.separator + "java";
+        String archivoOriginal = baseDir + File.separator + "yelp_database.csv";
+        String archivoLimpio = baseDir + File.separator + "datos_procesados.csv";
 
         System.out.println("Creando el archivo con 3 columnas: Organization,Rating,NumberReview");
 

@@ -1,133 +1,87 @@
-import pandas as pd
-import locale
-import time
-import os
-import sys
-import random
-import math
-# IMPORT relacionado con multiprocesamiento
-import multiprocessing as mult
-# Explicación:
-# - Usamos el módulo 'multiprocessing' para crear procesos OS-level (no hilos).
-# - Cada proceso tiene su propia interpretación de Python y memoria; así
-#   evitamos la restricción del GIL (Global Interpreter Lock) para trabajo CPU-bound.
-# - Costes a tener en cuenta: creación de procesos, sincronización y, sobre todo,
-#   la serialización (pickling) de los datos enviados a los workers y la copia de memoria.
-# - Por eso es importante mantener las funciones de worker en el nivel superior del módulo
-#   (no usar funciones anidadas ni lambdas) para que sean "picklables" y puedan enviarse a los workers.
+import pandas as pd                 #Libreria pandas para el manejo de datos 
+import time                         #Libreria time para medir tiempos de ejecucion
+import os                           #Libreria os para saber si existe en el sistema operativo un archivo
+import sys                          #Libreria sys para aumentar el limite de recursión
+import math                         #Libreria math para funciones matematicas
+import multiprocessing as mult      #Libreria multiprocessing para paralelismo
 
-m = 100.0  # Factor de normalización
+# En python hay un seguro que impide que una funcion se llame asi misma infinitas veces y se bloquee el programa
+# Aumentamos el límite de recursión para QuickSort con 1 millón de datos para evitar bloqueos
 
-# Aumentamos el límite de recursión para QuickSort con 1 millón de datos
 sys.setrecursionlimit(2000000)
 
 # Configuración regional para el formato de números, ya que o si no los calculos ser harán con comas en vez de puntos
-try:
-    locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
-except locale.Error:
-    locale.setlocale(locale.LC_ALL, '')
 
-def quick_sort(lista):
-    n = len(lista)
-    if n <= 1:
+def quick_sort (lista, llave):
+    """
+    Se implementa el algoritmo de QuickSort de forma recursiva para ordenar una lista de diccionarios
+    en función de una clave específica en orden descendente.
+    """
+
+    #Si la lista es de longitud 0 o 1, ya está ordenada
+    #Retornamos la lista tal cual
+    if len(lista) <= 1:
         return lista
+    else:
+        #Elegimos el pivote (elemento central)
+        pivote = lista[len(lista) // 2] 
 
-    def merge(left, right):
-        i = 0
-        j = 0
-        merged = []
-        while i < len(left) and j < len(right):
-            if left[i].get('puntuacion_total', 0) > right[j].get('puntuacion_total', 0):
-                merged.append(left[i]); i += 1
-            else:
-                merged.append(right[j]); j += 1
-        # anexar restos
-        while i < len(left):
-            merged.append(left[i]); i += 1
-        while j < len(right):
-            merged.append(right[j]); j += 1
-        return merged
+        #Dividimos la lista en tres sublistas
+        #Nota: Para orden DESCENDENTE (Mayor a Menor):
+        
+        #Si el valor de la llave es mayor, va a la lista de la izquierda (primeros)
+        menores = [x for x in lista if x[llave] > pivote[llave]]
 
-    width = 1
-    # Usamos una lista temporal para construir las fusiones en cada paso
-    result = lista[:]  # copia superficial de referencias a diccionarios
-    while width < n:
-        for i in range(0, n, 2 * width):
-            left = result[i: i + width]
-            right = result[i + width: i + 2 * width]
-            merged = merge(left, right)
-            # escribir vuelta en result
-            result[i: i + len(merged)] = merged
-        width *= 2
+        #Si el valor de la llave es igual, va a la lista de iguales
+        iguales = [x for x in lista if x[llave] == pivote[llave]]
 
-    return result
+        #Si el valor de la llave es menor, va a la lista de la derecha (últimos)
+        mayores = [x for x in lista if x[llave] < pivote[llave]]
 
-def quick_sort_paralelo(lista):
-    if not lista:
-        return lista
+        #Recursivamente ordenamos las sublistas y las concatenamos
+        return quick_sort(menores, llave) + iguales + quick_sort(mayores, llave)
     
-    # Imprimimos en el proceso 'main' (seguro)
-    print("Iniciando QuickSort Paralelo...")
-    # Número de procesos a usar:
-    num_nucleos = max(1, mult.cpu_count())
-    # Explicación:
-    # - mult.cpu_count() devuelve el número de CPUs lógicas del sistema.
-    # - Ajustamos con max(1, ...) para proteger contra retornos inesperados.
-    # - En máquinas con hyperthreading, usar exactamente cpu_count() puede o no ser ideal,
-    #   a veces conviene usar cpu_count()-1 para dejar CPU al sistema/ I/O.
-    print(f"Usando {num_nucleos} núcleos de CPU...")
-    
-    # División de la lista en 'trozos' para enviar a cada proceso.
+def heap(lista, n, i, llave):
+    """
+    Función auxiliar para el algoritmo HeapSort.
+    """
+    mayor = i               #Asumiendo que el nodo actual es el mayor
+    izq = 2 * i + 1         #Índice del hijo izquierdo
+    der = 2 * i + 2         #Índice del hijo derecho
+
+    # Verificamos si los hijos son MENORES que el nodo actual (Min-Heap)
+    # Esto es necesario para que, al intercambiar con el final, el orden sea DESCENDENTE.
+
+    if izq < n and lista[izq][llave] < lista[mayor][llave]:
+        mayor = izq
+
+    if der < n and lista[der][llave] < lista[mayor][llave]:
+        mayor = der
+
+    # Si el mayor (que ahora apunta al menor) no es el nodo actual...
+    if mayor != i:
+        lista[i], lista[mayor] = lista[mayor], lista[i]
+        heap(lista, n, mayor, llave)
+
+def heap_sort(lista, llave):
+    """
+    Implementación del algoritmo HeapSort para ordenar una lista de diccionarios
+    en función de una clave específica en orden descendente.
+    """
     n = len(lista)
-    tamano_trozo = math.ceil(n / num_nucleos)
-    trozos = [lista[i:i+tamano_trozo] for i in range(0, n, tamano_trozo)]
-    # Explicación:
-    # - Hacemos chunking porque pool.map espera iterables de tareas independientes.
-    # - Cada chunk será serializado y enviado al proceso worker. Si los chunks son
-    #   muy grandes, el coste de serialización y copia aumentará. Si son muy pequeños,
-    #   el overhead de scheduling dominará. Elegir tamaño equilibrado es clave.
-    print(f"Lista dividida en {len(trozos)} trozos de ~{tamano_trozo} elementos.")
-    
-    # Uso del Pool:
-    with mult.Pool(processes=num_nucleos) as pool:
-        print("Enviando trozos a los núcleos para ordenar (pool.map)...")
-        
-        # pool.map aplica la función 'quick_sort' a cada chunk en paralelo y
-        # devuelve una lista con los resultados en el mismo orden de entrada.
-        # Consideraciones importantes:
-        # - 'quick_sort' debe ser una función top-level (definida en el módulo),
-        #   para que multiprocessing pueda picklearla y ejecutarla en procesos hijos.
-        # - Los datos (cada trozo) se picklean y se envían por IPC. Esto implica copia de memoria.
-        # - Evitar estructuras no picklables dentro de los diccionarios (ej. objetos abiertos, locks).
-        # - pool.map sincroniza: esperará a que todos los workers terminen para devolver resultados.
-        #   Si una tarea se bloquea o falla, el map se quedará esperando (posible source de deadlocks
-        #   si hay interdependencias); por eso cada tarea debe ser autónoma.
-        trozos_ordenados = pool.map(quick_sort, trozos)
-        
-        print("Ordenamiento de trozos completado. Fusionando resultados...")
-        
-    # Fusionamos los resultados de los workers en el proceso principal.
-    # Atención: la fusión ocurre en el proceso main para evitar trabajo adicional de sincronización.
-    lista_final_ordenada = fusionar_multiples_listas(trozos_ordenados)
-    return lista_final_ordenada
 
-# Agregar de nuevo las funciones de fusión que faltaban
-def fusionar_multiples_listas(listas_ordenadas):
-    if not listas_ordenadas:
-        return []
+    # Construir el heap (reorganizar la lista)
+    for i in range(n // 2 - 1, -1, -1):
+        heap(lista, n, i, llave)
 
-    # Empezamos con la primera lista ordenada
-    lista_fusionada = listas_ordenadas[0]
-    
-    # Iteramos sobre el RESTO de las listas (del 1 en adelante)
-    for i in range(1, len(listas_ordenadas)):
-        print(f"Fusionando trozo {i+1} de {len(listas_ordenadas)}...")
-        # Fusionamos el resultado acumulado con el siguiente trozo
-        lista_fusionada = fusionar_dos_listas(lista_fusionada, listas_ordenadas[i])
-        
-    return lista_fusionada
+    # Extraer elementos del heap uno por uno
+    for i in range(n - 1, 0, -1):
+        lista[i], lista[0] = lista[0], lista[i]   # Intercambiar
+        heap(lista, i, 0, llave)                  # Llamar a heapify en el heap reducido
 
-def fusionar_dos_listas(listaA, listaB):
+    return lista
+
+def fusionar_dos_listas(listaA, listaB, llave):
     """
     Implementación "simple" (manual) de la fusión de dos listas ordenadas.
     (Ordena DESCENDENTEMENTE)
@@ -135,184 +89,283 @@ def fusionar_dos_listas(listaA, listaB):
     lista_fusionada = []
     
     # Punteros (índices) para la Lista A y la Lista B
-    i = 0
-    j = 0
+    i = 0 #puntero lista A
+    j = 0 #puntero lista B
     
     # Recorremos ambas listas mientras haya elementos en las dos
     while i < len(listaA) and j < len(listaB):
         # (Orden DESCENDENTE)
-        if listaA[i]['puntuacion_total'] > listaB[j]['puntuacion_total']:
+        if listaA[i][llave] > listaB[j][llave]:
             lista_fusionada.append(listaA[i])
             i += 1 # Avanzamos el puntero A
         else:
             lista_fusionada.append(listaB[j])
             j += 1 # Avanzamos el puntero B
-            
-    # Cuando una lista se acaba, añadimos lo que queda de la otra
-    while i < len(listaA):
-        lista_fusionada.append(listaA[i])
-        i += 1
-    while j < len(listaB):
-        lista_fusionada.append(listaB[j])
-        j += 1
-        
+
+    #Si sobran elementos en la lista A, los añadimos al final
+    lista_fusionada.extend(listaA[i:])
+    lista_fusionada.extend(listaB[j:])
+
     return lista_fusionada
 
+            
+def fusionar_chucks(trozos, llave):
 
-def heap_sort(lista):
-    n = len(lista)
-    # Construir min-heap
-    for i in range(n // 2 - 1, -1, -1):
-        _heapify_worker(lista, n, i)
-    # Extraer elementos
-    for i in range(n - 1, 0, -1):
-        lista[0], lista[i] = lista[i], lista[0]
-        _heapify_worker(lista, i, 0)
+    """
+    Función para fusionar múltiples listas ordenadas en una sola lista ordenada.
+    """
+
+    if not trozos:
+        return []
+    
+    #Se comienza con el primer trozo
+    resuldado = trozos[0]
+
+    #Se va uniendo el resultado con cada uno de los trozos restantes
+    for i in range(1, len(trozos)):
+        resuldado = fusionar_dos_listas(resuldado, trozos[i], llave)
+    
+    return resuldado
+
+
+def paralelismo_mulltiproceso(args):
+    """
+    Lo que se ejecuta en cada proceso hijo (nucleos).
+    """
+    algoritmo, lista, llave = args
+
+    # Mostrar informacion de los nucleos
+    # Usa la biblioteca multiprocessing para obtener el nombre y PID del proceso actual
+
+    #current_process devuelve el proceso actual y .name y .pid dan el nombre y PID respectivamente
+    proc_name = mult.current_process().name
+    pid = mult.current_process().pid
+    # imprimir nombre del núcleo y PID (información de los procesos workers)
+    print(f"Núcleo: {proc_name}  PID: {pid}  - Ordenando {len(lista)} elementos usando {algoritmo.capitalize()}")
+
+    if algoritmo == 'quicksort':
+        return quick_sort(lista, llave)
+    elif algoritmo == 'heapsort':
+        return heap_sort(lista, llave)
+    
     return lista
 
-def _heapify_worker(lista, n, i):
-    menor = i
-    izq = 2 * i + 1
-    der = 2 * i + 2
-
-    if izq < n and lista[izq]['puntuacion_total'] < lista[menor]['puntuacion_total']:
-        menor = izq
-    if der < n and lista[der]['puntuacion_total'] < lista[menor]['puntuacion_total']:
-        menor = der
-
-    if menor != i:
-        lista[i], lista[menor] = lista[menor], lista[i]
-        _heapify_worker(lista, n, menor)
-
-def heap_sort_paralelo(lista):
+def ordenar_paralelo(lista, algoritmo, llave):
     """
-    Orquesta el ordenamiento HeapSort O(n log n) en paralelo.
+    Orquesta el ordenamiento en paralelo usando múltiples procesos.
     """
-    print("Iniciando HeapSort Paralelo...")
+    print(f"Iniciando {algoritmo.capitalize()} Paralelo por '{llave}'...")
     
-    # Determina el número de núcleos a usar
+    # Determina el número de núcleos disponibles
     num_nucleos = mult.cpu_count()
     print(f"Usando {num_nucleos} núcleos de CPU...")
     
-    # Divide la lista en 'N' trozos (chunks)
+    # Divide la lista en trozos aproximadamente iguales
     n = len(lista)
     tamano_trozo = math.ceil(n / num_nucleos)
     
+    # Crear los trozos
     trozos = [lista[i : i + tamano_trozo] for i in range(0, n, tamano_trozo)]
     print(f"Lista dividida en {len(trozos)} trozos de ~{tamano_trozo} elementos.")
 
-    # Crear el Pool de Trabajadores
+    # Crear un pool de procesos
     with mult.Pool(processes=num_nucleos) as pool:
         
         print("Enviando trozos a los núcleos para ordenar (pool.map)...")
         
-        # Igual que en quick_sort_paralelo, pool.map enviará cada trozo a un proceso
-        # que ejecuta la función 'heap_sort'. Los mismos costes y restricciones aplican.
-        trozos_ordenados = pool.map(heap_sort, trozos)
+        # Preparar los argumentos para cada proceso
+        args = [(algoritmo, trozo, llave) for trozo in trozos]
+        trozos_ordenados = pool.map(paralelismo_mulltiproceso, args)
         
         print("Ordenamiento de trozos completado. Fusionando resultados...")
-
-    # Fusionar los trozos ordenados en el proceso principal
-    lista_final_ordenada = fusionar_multiples_listas(trozos_ordenados)
+    
+    # Fusionar los trozos ordenados en una sola lista ordenada
+    lista_final_ordenada = fusionar_chucks(trozos_ordenados, llave)
     
     return lista_final_ordenada
 
 
 def main():
     """Función principal del programa"""
-    # Definición de archivos de entrada y salida
-    archivo_entrada = "datos_procesados_py.csv"
-    archivo_salida = "datos_ordenados_py.csv"
+    # Definición de archivos de entrada y salida (ubicados en la misma carpeta del script)
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    archivo_entrada = os.path.join(base_dir, "datos_procesados_py.csv")
+    archivo_quick_sort = os.path.join(base_dir, "datos_ordenados_quick_sort.csv") # Archivo exclusivo de QuickSort
+    archivo_heap_sort = os.path.join(base_dir, "datos_ordenados_heap_sort.csv")   # Archivo exclusivo de HeapSort
+    
+    m = 100  # Número mínimo de revisiones para considerar
 
     print(f"Cargando datos desde: {archivo_entrada}")
 
-    # Verificación de existencia del archivo
     if not os.path.exists(archivo_entrada):
         print(f"Error: El archivo {archivo_entrada} no existe.")
         return
 
-    # Lectura del archivo CSV
     try:
         datos = pd.read_csv(archivo_entrada)
     except Exception as e:
         print(f"Error al leer el archivo {archivo_entrada}: {e}")
         return
-    print("Calculando C (Promedio Global) desde los datos...")
-    C = datos['Rating'].mean()
-    print(f"C (Promedio Global) calculado: {C:.4f}")
-
-    # Conversión de DataFrame a lista de diccionarios
+    
+    # Asegurar que las columnas necesarias existan y tengan el tipo correcto
+    datos['Rating'] = pd.to_numeric(datos['Rating'], errors='coerce').fillna(0.0)
+    datos['NumberReview'] = pd.to_numeric(datos['NumberReview'], errors='coerce').fillna(0).astype(int)
+    
     lista_restaurantes = datos.to_dict('records')
-    print(f"Carga completada. Procesando {len(lista_restaurantes)} registros...")
+    C = datos['Rating'].mean()
 
     print("\nMenu de opciones de ordenamiento (Paralelo):")
-    print("1. QuickSort (Paralelo - Múltiples Núcleos)")
-    print("2. HeapSort (Paralelo - Múltiples Núcleos)")
+    print("1. QuickSort (Generar archivo ordenado por reseñas)")
+    print("2. HeapSort  (Leer archivo de QuickSort -> Fórmula -> Ordenar por Puntuación)")
 
     try:
         opcion = int(input("Seleccione una opción (1-2): "))
     except ValueError:
-        print("Entrada inválida. Por favor, ingrese un número.")
-        return
-
-    ### El tiempo total incluye el cálculo de la fórmula + el ordenamiento
-    print("Iniciando procesamiento y ordenamiento...")
+        print("Entrada inválida."); return
+    
+    print("Iniciando procesamiento...")
     tiempo_inicio = time.time()
 
-    # Cálculo de puntuación de confianza para cada restaurante
-    for r in lista_restaurantes:
-        R = r.get('Rating', 0)
-        v = r.get('NumberReview', 0)
-        try:
-            # asegurar tipos numéricos
-            R = float(R)
-            v = int(v)
-        except Exception:
-            R = 0.0
-            v = 0
-        if (v + m) != 0:
-            r['puntuacion_total'] = (v / (v + m)) * R + (m / (v + m)) * C
-        else:
+    
+    archivo_salida_actual = "" # Variable para saber qué archivo guardamos al final
+
+    if opcion == 1:
+
+        lista_restaurantes = ordenar_paralelo(lista_restaurantes, 'quicksort', 'NumberReview')
+        
+        # Configuración para reporte y guardado
+        archivo_salida_actual = archivo_quick_sort
+        llave_reporte = 'NumberReview'
+        
+        # Inicializamos puntuacion en 0 solo para el formato
+        for r in lista_restaurantes:
             r['puntuacion_total'] = 0.0
 
-    # --- SELECCIÓN ACTUALIZADA ---
-    if opcion == 1:
-        print("Ordenando con QuickSort (Paralelo)...")
-        lista_restaurantes = quick_sort_paralelo(lista_restaurantes)
     elif opcion == 2:
-        print("Ordenando con HeapSort (Paralelo)...")
-        lista_restaurantes = heap_sort_paralelo(lista_restaurantes)
-    else:
-        print("Opción inválida. Saliendo del programa.")
-        return
+        
+        # Verificar si el archivo de QuickSort existe, si no, generarlo
+        if not os.path.exists(archivo_quick_sort):
+            print(f"¡ATENCIÓN! El archivo '{archivo_quick_sort}' no existe.")
+            print("Ejecutando QuickSort automáticamente para generarlo primero...")
+            
+            lista_temp = ordenar_paralelo(lista_restaurantes, 'quicksort', 'NumberReview')
+            df_temp = pd.DataFrame(lista_temp)
+            # Inicializar puntuacion para que no falle al guardar
+            df_temp['puntuacion_total'] = 0.0
+            # Añadir posicion temporal
+            df_temp.insert(0, 'Posicion', range(1, len(df_temp) + 1))
+            
+            columnas_temp = ['Posicion', 'Organization', 'Rating', 'NumberReview', 'puntuacion_total']
+            # Asegurar que solo usamos columnas que existen
+            cols_existentes = [col for col in columnas_temp if col in df_temp.columns]
+            df_temp[cols_existentes].to_csv(archivo_quick_sort, index=False)
+            print("Archivo intermedio generado y guardado.")
+        
+        # Leemos desde el nuevo archivo
+        print(f"Leyendo datos ordenados desde disco: {archivo_quick_sort}...")
+        try:
+            datos_cargados = pd.read_csv(archivo_quick_sort)
+            lista_restaurantes = datos_cargados.to_dict('records')
+        except Exception as e:
+            print(f"Error al leer archivo intermedio: {e}")
+            return
 
+        print("Calculando puntuaciones de confianza...")
+        for r in lista_restaurantes:
+            R = float(r.get('Rating', 0))
+            v = int(r.get('NumberReview', 0))
+            if (v + m) != 0:
+                r['puntuacion_total'] = (v / (v + m)) * R + (m / (v + m)) * C
+            else:
+                r['puntuacion_total'] = 0.0
+
+        print("Ordenando por 'puntuacion_total' con HeapSort...")
+        lista_restaurantes = ordenar_paralelo(lista_restaurantes, 'heapsort', 'puntuacion_total')
+        
+        # Configuración para reporte y guardado
+        archivo_salida_actual = archivo_heap_sort
+        llave_reporte = 'puntuacion_total'
+
+    else:
+        print("Opción inválida.")
+        return
+    
     # Cálculo del tiempo de ejecución
     tiempo_fin = time.time()
     tiempo_total = (tiempo_fin - tiempo_inicio) * 1000.0
 
-    # Preparación de datos para exportación
+    print(f"Guardando datos ordenados en: {archivo_salida_actual}")
+
     datos_ordenados = pd.DataFrame(lista_restaurantes)
+
+    # Recalcular o añadir columna de posición (si ya existe por la lectura, se sobrescribe para ser correcta)
+    if 'Posicion' in datos_ordenados.columns:
+        del datos_ordenados['Posicion']
     datos_ordenados.insert(0, 'Posicion', range(1, len(datos_ordenados) + 1))
 
-    # Selección y renombre de columnas
-    columnas_finales = ['Posicion', 'Organization', 'Rating', 'NumberReview', 'puntuacion_total']
-    datos_ordenados = datos_ordenados[columnas_finales]
-    # Guardado de resultados
+    # Selección dinámica de columnas
+    if opcion == 1:
+        columnas_finales = ['Posicion', 'Organization', 'Rating', 'NumberReview']
+    else:
+        columnas_finales = ['Posicion', 'Organization', 'Rating', 'NumberReview', 'puntuacion_total']
+
+    # Filtrar columnas válidas
+    columnas_finales = [col for col in columnas_finales if col in datos_ordenados.columns]
+
     try:
-        datos_ordenados.to_csv(archivo_salida, index=False)
-        print(f"\nDatos ordenados guardados en: {archivo_salida}")
+        datos_ordenados[columnas_finales].to_csv(archivo_salida_actual, index=False)
+        print(f"\nDatos ordenados guardados exitosamente en: {archivo_salida_actual}")
     except Exception as e:
-        print(f"Error al guardar el archivo {archivo_salida}: {e}")
+        print(f"Error al guardar el archivo: {e}")
         return
 
-    print(f"\nTiempo total (Procesamiento + Ordenamiento): {tiempo_total:.2f} ms")
-    print("Programa finalizado.")
+    print(f"\nTiempo total de operación: {tiempo_total:.2f} ms")
+
+    print(f"\nTop 20 restaurantes ÚNICOS ordenados por '{llave_reporte}':")
+    
+    nombres_vistos = set()
+    contador = 0
+    
+    # Imprimir encabezado manual para que se vea ordenado
+    # Ajustamos el espaciado (width) según las columnas
+    if opcion == 1:
+        print(f"{'Pos':<5} {'Organization':<40} {'Rating':<10} {'Reviews':<10}")
+    else:
+        print(f"{'Pos':<5} {'Organization':<40} {'Rating':<10} {'Reviews':<10} {'Score':<10}")
+
+    for r in lista_restaurantes:
+        nombre = r.get('Organization', 'Desconocido')
+        
+        # Si ya vimos este nombre, saltamos a la siguiente iteración
+        if nombre in nombres_vistos:
+            continue
+            
+        # Si es nuevo, lo añadimos al set y lo imprimimos
+        nombres_vistos.add(nombre)
+        contador += 1
+        
+        # Formatear la salida
+        pos = contador
+        rating = r.get('Rating', 0)
+        reviews = r.get('NumberReview', 0)
+        
+        # Recortar nombre si es muy largo para que no rompa la tabla
+        nombre_imp = (nombre[:37] + '..') if len(str(nombre)) > 37 else str(nombre)
+        
+        if opcion == 1:
+            print(f"{pos:<5} {nombre_imp:<40} {rating:<10} {reviews:<10}")
+        else:
+            score = r.get('puntuacion_total', 0)
+            print(f"{pos:<5} {nombre_imp:<40} {rating:<10} {reviews:<10} {score:.4f}")
+        
+        # Detenernos al llegar a 20 únicos
+        if contador >= 20:
+            break
+
+    print("\nPrograma finalizado.")
 
 
 if __name__ == "__main__":
-    # freeze_support() es necesario en Windows para permitir que los procesos hijos se
-    # inicien correctamente cuando el script se ejecuta como script principal.
-    # Sin él, al usar multiprocessing en Windows (spawn) puede fallar al importar el módulo
-    # o ejecutar código en los workers.
+    # freeze_support es necesario en Windows para evitar ejecuciones recursivas del main
     mult.freeze_support()
     main()

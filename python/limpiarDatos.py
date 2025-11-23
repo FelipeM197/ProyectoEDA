@@ -9,9 +9,10 @@ except locale.Error:
     locale.setlocale(locale.LC_ALL, '')  # Fallback
 
 def main():
-    # Archivos en una variable
-    archivo_original = "yelp_database.csv"
-    archivo_limpio = "datos_procesados_py.csv" 
+    # Archivos en la misma carpeta donde está este script
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    archivo_original = os.path.join(base_dir, "yelp_database.csv")
+    archivo_limpio = os.path.join(base_dir, "datos_procesados_py.csv") 
 
     # Validacion de entrada del archivo
     if not os.path.exists(archivo_original):
