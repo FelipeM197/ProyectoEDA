@@ -10,13 +10,32 @@ public class Ordenar {
     private static final double m = 100.0;
 
     public static void main(String[] args) {
-        Locale.setDefault(Locale.US); 
+       Locale.setDefault(Locale.US);
         Scanner scanner = new Scanner(System.in);
-        // Asegurar que leamos y escribamos dentro de la carpeta 'java' del proyecto
-        String baseDir = System.getProperty("user.dir") + File.separator + "java";
-        String archivoLimpio = baseDir + File.separator + "datos_procesados.csv";
-        String archivoQuickSort = baseDir + File.separator + "datos_ordenados_quick_sort.csv";
-        String archivoSalida = baseDir + File.separator + "restaurantes_ordenados.csv";
+        String nombreArchivoEntrada = "datos_procesados.csv";
+        // Usar el directorio actual sin subcarpeta 'java'
+        File archivoEntrada = encontrarArchivo(nombreArchivoEntrada);
+
+        if (archivoEntrada == null) {
+            System.err.println("ERROR FATAL: No se encuentra el archivo '" + nombreArchivoEntrada + "'.");
+            System.err.println("Asegúrate de estar ejecutando el programa desde la carpeta 'proyectoEda' o 'proyectoEda/java'.");
+            System.err.println("Ruta de búsqueda actual: " + System.getProperty("user.dir"));
+            return;
+        }
+
+        // Definimos las rutas completas basadas en donde encontramos el archivo de entrada
+        // Esto asegura que los archivos de salida se guarden en la misma carpeta que el de entrada
+        String carpetaBase = archivoEntrada.getParent();
+        if (carpetaBase == null) carpetaBase = "."; // Por si está en la raíz actual
+
+        String archivoLimpio = archivoEntrada.getPath(); // Ruta completa detectada
+        
+        // Los de salida los guardamos en la misma carpeta donde encontramos el de entrada
+        String archivoQuickSort = carpetaBase + File.separator + "datos_ordenados_quick_sort.csv";
+        String archivoSalida = carpetaBase + File.separator + "restaurantes_ordenados.csv";
+        
+        System.out.println("Archivo encontrado en: " + archivoLimpio);
+
 
         // Lectura previa de datos (solo usada por opción 1)
         System.out.println("=== MENÚ DE ORDENAMIENTO ===");
@@ -403,5 +422,22 @@ public class Ordenar {
 
             if (mostrados >= 20) break;
         }
+    }
+    public static File encontrarArchivo(String nombreArchivo) {
+        // 1. Intento directo (si ejecutamos desde la carpeta 'java')
+        File f = new File(nombreArchivo);
+        if (f.exists()) return f;
+
+        // 2. Intento relativo a carpeta 'java' (si ejecutamos desde 'proyectoEda')
+        // File.separator se adapta automáticamente a Windows (\) o Linux (/)
+        f = new File("java" + File.separator + nombreArchivo);
+        if (f.exists()) return f;
+        
+        // 3. Intento en carpeta 'src' (común en IDEs como VS Code o IntelliJ)
+        f = new File("src" + File.separator + nombreArchivo);
+        if (f.exists()) return f;
+
+        // Si no se encuentra en ninguno
+        return null;
     }
 }

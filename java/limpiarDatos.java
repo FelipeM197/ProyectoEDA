@@ -14,15 +14,31 @@ public class limpiarDatos {
         // Aqui se pone con coma en vez de punto, cosa que genera conflictos al leer y escribir el csv
         Locale.setDefault(Locale.US);       
         // Asegurar que los archivos se tomen desde la carpeta 'java' donde está este archivo
-        String baseDir = System.getProperty("user.dir") + File.separator + "java";
-        String archivoOriginal = baseDir + File.separator + "yelp_database.csv";
-        String archivoLimpio = baseDir + File.separator + "datos_procesados.csv";
+        String nombreArchivoEntrada = "yelp_database.csv";
+        String nombreArchivoSalida = "datos_procesados.csv";
+        File archivoEntrada = encontrarArchivo(nombreArchivoEntrada);
+
+        if (archivoEntrada == null) {
+            System.err.println("ERROR FATAL: No se encuentra el archivo '" + nombreArchivoEntrada + "'.");
+            System.err.println("Asegúrate de que el archivo esté en la carpeta del proyecto, en 'java/' o en 'src/'.");
+            System.err.println("Directorio actual: " + System.getProperty("user.dir"));
+            return;
+        }
+
+        // Definimos la ruta de salida en la MISMA carpeta donde encontramos la entrada
+        String carpetaBase = archivoEntrada.getParent();
+        if (carpetaBase == null) carpetaBase = "."; 
+
+        String rutaCompletaEntrada = archivoEntrada.getPath();
+        String rutaCompletaSalida = carpetaBase + File.separator + nombreArchivoSalida;
+        
+        System.out.println("Archivo de entrada encontrado en: " + rutaCompletaEntrada);
+        System.out.println("El archivo limpio se guardará en: " + rutaCompletaSalida);
 
         System.out.println("Creando el archivo con 3 columnas: Organization,Rating,NumberReview");
 
-        try (BufferedReader br = new BufferedReader(new FileReader(archivoOriginal));
-             BufferedWriter bw = new BufferedWriter(new FileWriter(archivoLimpio))) {
-            
+        try (BufferedReader br = new BufferedReader(new FileReader(rutaCompletaEntrada));
+             BufferedWriter bw = new BufferedWriter(new FileWriter(rutaCompletaSalida))) {            
             String linea;
             
             linea = br.readLine(); // Saltamos la primera linea (cabecera)
@@ -56,6 +72,21 @@ public class limpiarDatos {
             }
         }
     }    
+    public static File encontrarArchivo(String nombreArchivo) {
+            // 1. Busca en directorio actual
+            File f = new File(nombreArchivo);
+            if (f.exists()) return f;
+
+            // 2. Busca en subcarpeta 'java'
+            f = new File("java" + File.separator + nombreArchivo);
+            if (f.exists()) return f;
+            
+            // 3. Busca en subcarpeta 'src'
+            f = new File("src" + File.separator + nombreArchivo);
+            if (f.exists()) return f;
+
+            return null;
+        }
+    }
 
 
-}
