@@ -1,5 +1,4 @@
 import java.io.*;
-// removed unused imports - keep behavior simple
 import java.util.ArrayList;
 import java.util.Locale;
 import java.util.Scanner;
@@ -366,18 +365,24 @@ public class Ordenar {
         }
     }
 
-    // Nuevo: comparador/recursividad quicksort por NumberReview (no tocar
-    // comentarios existentes)
+    // comparador/recursividad quicksort por NumberReview
     public static int comparaReviews(ArrayList<Restaurante> arreglo, int inicio, int fin) {
+
+        //pivote aleatorio
         int pivote = pivoteAleatorio(arreglo, inicio, fin);
+        //pivote valor es el numero de resenas del restaurante en la posicion del pivote
         int pivoteValor = arreglo.get(pivote).numeroResenas;
         int i = inicio;
         int j = fin;
+        // Mientras no se crucen los índices 
         while (i <= j) {
+            //mientras el numero de resenas en la posicion i sea mayor al pivoteValor, avanza i
             while (i <= fin && arreglo.get(i).numeroResenas > pivoteValor)
                 i++;
+            //mientras el numero de resenas en la posicion j sea menor al pivoteValor, retrocede j
             while (j >= inicio && arreglo.get(j).numeroResenas < pivoteValor)
                 j--;
+            // Si no se han cruzado los índices, se realiza el intercambio
             if (i <= j) {
                 cambio(arreglo, i, j);
                 i++;
@@ -388,6 +393,7 @@ public class Ordenar {
     }
 
     public static void recursividadReviews(ArrayList<Restaurante> arreglo, int inicio, int fin) {
+        // Llama al metodo recursivo principal
         if (inicio < fin) {
             int i = comparaReviews(arreglo, inicio, fin);
             if (inicio < i - 1)

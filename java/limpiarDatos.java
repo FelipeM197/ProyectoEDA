@@ -19,7 +19,7 @@ public class limpiarDatos {
         String nombreArchivoEntrada = "yelp_database.csv";
         String nombreArchivoSalida = "datos_procesados.csv";
         
-        // Usar ClassLoader para cargar el archivo de forma portátil con InputStream (busca en los recursos del proyecto y no en los archivos de tu sistema)
+        // Usar ClassLoader para cargar el archivo de forma portátil con InputStream (busca en los recursos del proyecto y no en los archivos del sistema)
         InputStream inputStream = limpiarDatos.class.getResourceAsStream("/" + nombreArchivoEntrada);
 
         // Verificación de existencia del archivo con if y mensaje de error claro
