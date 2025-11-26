@@ -1,4 +1,5 @@
 import java.io.*;
+// removed unused imports - keep behavior simple
 import java.util.ArrayList;
 import java.util.Locale;
 import java.util.Scanner;
@@ -10,32 +11,29 @@ public class Ordenar {
     private static final double m = 100.0;
 
     public static void main(String[] args) {
-       Locale.setDefault(Locale.US);
+        Locale.setDefault(Locale.US);
         Scanner scanner = new Scanner(System.in);
         String nombreArchivoEntrada = "datos_procesados.csv";
-        // Usar el directorio actual sin subcarpeta 'java'
-        File archivoEntrada = encontrarArchivo(nombreArchivoEntrada);
+        
+        // Usar ClassLoader para cargar el archivo de forma portátil
+        //ImputStream lo que hace es buscar el archivo dentro de los recursos del proyecto es mas eficiente que fileReader
+        InputStream inputStream = Ordenar.class.getResourceAsStream("/" + nombreArchivoEntrada);
 
-        if (archivoEntrada == null) {
-            System.err.println("ERROR FATAL: No se encuentra el archivo '" + nombreArchivoEntrada + "'.");
-            System.err.println("Asegúrate de estar ejecutando el programa desde la carpeta 'proyectoEda' o 'proyectoEda/java'.");
+        // Verificación de existencia del archivo con if y mensaje de error claro
+        if (inputStream == null) {
+            System.err.println("ERROR FATAL: No se encuentra el recurso '" + nombreArchivoEntrada + "'.");
+            System.err.println("Asegúrate de que el archivo esté en la carpeta 'java/' con los .java");
             System.err.println("Ruta de búsqueda actual: " + System.getProperty("user.dir"));
+            scanner.close();
             return;
         }
 
-        // Definimos las rutas completas basadas en donde encontramos el archivo de entrada
-        // Esto asegura que los archivos de salida se guarden en la misma carpeta que el de entrada
-        String carpetaBase = archivoEntrada.getParent();
-        if (carpetaBase == null) carpetaBase = "."; // Por si está en la raíz actual
+        // Definimos las rutas completas basadas donde guardamos salida
+        // Los archivos de salida se guardarán en el directorio actual
+        String archivoQuickSort = "datos_ordenados_quick_sort.csv";
+        String archivoSalida = "restaurantes_ordenados.csv";
 
-        String archivoLimpio = archivoEntrada.getPath(); // Ruta completa detectada
-        
-        // Los de salida los guardamos en la misma carpeta donde encontramos el de entrada
-        String archivoQuickSort = carpetaBase + File.separator + "datos_ordenados_quick_sort.csv";
-        String archivoSalida = carpetaBase + File.separator + "restaurantes_ordenados.csv";
-        
-        System.out.println("Archivo encontrado en: " + archivoLimpio);
-
+        System.out.println("Archivo de entrada cargado desde recursos: " + nombreArchivoEntrada);
 
         // Lectura previa de datos (solo usada por opción 1)
         System.out.println("=== MENÚ DE ORDENAMIENTO ===");
@@ -45,25 +43,25 @@ public class Ordenar {
         int opcion = scanner.nextInt();
 
         if (opcion == 1) {
-            System.out.println("Cargando datos a memoria desde: " + archivoLimpio);
+            System.out.println("Cargando datos a memoria desde: " + nombreArchivoEntrada);
             ArrayList<Restaurante> listaRestaurantes = new ArrayList<>(1_000_000);
-            try (BufferedReader br = new BufferedReader(new FileReader(archivoLimpio))) {
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(inputStream))) {
                 String linea;
-                br.readLine(); // Saltamos la cabecera 
+                br.readLine(); // Saltamos la cabecera
                 while ((linea = br.readLine()) != null) {
                     String[] partes = linea.split(",");
-                    try{
+                    try {
                         String nombre = partes[0];
-                        double rating = Double.parseDouble(partes[1]);   
+                        double rating = Double.parseDouble(partes[1]);
                         int numeroResenas = Integer.parseInt(partes[2]);
                         Restaurante restaurante = new Restaurante(nombre, rating, numeroResenas);
                         listaRestaurantes.add(restaurante);
-                    } catch (Exception e){
+                    } catch (Exception e) {
                         // Ignorar líneas mal formadas
                     }
                 }
             } catch (IOException e) {
-                System.err.println("Error leyendo " + archivoLimpio + ": " + e.getMessage());
+                System.err.println("Error leyendo " + nombreArchivoEntrada + ": " + e.getMessage());
                 return;
             }
 
@@ -90,7 +88,7 @@ public class Ordenar {
                 for (int i = 0; i < listaRestaurantes.size(); i++) {
                     Restaurante r = listaRestaurantes.get(i);
                     writer.write(String.format("%d,%s,%.2f,%d\n",
-                        i+1, r.nombre, r.rating, r.numeroResenas));
+                            i + 1, r.nombre, r.rating, r.numeroResenas));
                 }
                 System.out.println("Archivo QuickSort generado: " + archivoQuickSort);
             } catch (IOException e) {
@@ -116,7 +114,7 @@ public class Ordenar {
                 br.readLine(); // cabecera
                 while ((linea = br.readLine()) != null) {
                     String[] partes = linea.split(",");
-                    try{
+                    try {
                         // Formato esperado: Posición,Nombre,Rating,NumeroReseñas,PuntuaciónTotal
                         String nombre = partes[1];
                         double rating = Double.parseDouble(partes[2]);
@@ -141,7 +139,8 @@ public class Ordenar {
             long t0 = System.nanoTime();
 
             double sumaTotalRatings = 0.0;
-            for (Restaurante r : listaRestaurantes) sumaTotalRatings += r.rating;
+            for (Restaurante r : listaRestaurantes)
+                sumaTotalRatings += r.rating;
             double C = sumaTotalRatings / listaRestaurantes.size();
             System.out.println("C calculado: " + C);
 
@@ -165,7 +164,7 @@ public class Ordenar {
                 for (int i = 0; i < listaRestaurantes.size(); i++) {
                     Restaurante r = listaRestaurantes.get(i);
                     writer.write(String.format("%d,%s,%.2f,%d,%.4f\n",
-                        i+1, r.nombre, r.rating, r.numeroResenas, r.puntuacionTotal));
+                            i + 1, r.nombre, r.rating, r.numeroResenas, r.puntuacionTotal));
                 }
                 System.out.println("Archivo final generado: " + archivoSalida);
             } catch (IOException e) {
@@ -181,7 +180,6 @@ public class Ordenar {
 
         scanner.close();
     }
-    
 
     public static void heapSort(ArrayList<Restaurante> lista) {
         int n = lista.size();
@@ -199,10 +197,10 @@ public class Ordenar {
             Restaurante temp = lista.get(0);
             lista.set(0, lista.get(i));
             lista.set(i, temp);
-            
+
             // (Imprimimos el progreso, similar a Python)
             if (i % 1000 == 0) {
-                 System.out.printf("HeapSort: Re-balanceando heap... %d/%d\r", (n-i), n);
+                System.out.printf("HeapSort: Re-balanceando heap... %d/%d\r", (n - i), n);
             }
 
             // Llamar a heapify en el heap reducido (tamaño 'i')
@@ -217,9 +215,9 @@ public class Ordenar {
      * 'n' es el tamaño del heap.
      */
     public static void heapify(ArrayList<Restaurante> lista, int n, int i) {
-        int menor = i;      // Inicializamos 'menor' como la raíz
-        int izq = 2 * i + 1;  // índice del hijo izquierdo
-        int der = 2 * i + 2;  // índice del hijo derecho
+        int menor = i; // Inicializamos 'menor' como la raíz
+        int izq = 2 * i + 1; // índice del hijo izquierdo
+        int der = 2 * i + 2; // índice del hijo derecho
 
         // Si el hijo izquierdo es MENOR que la raíz
         if (izq < n && lista.get(izq).puntuacionTotal < lista.get(menor).puntuacionTotal) {
@@ -243,8 +241,6 @@ public class Ordenar {
         }
     }
 
-
-
     public static void quickSort(ArrayList<Restaurante> lista) {
         System.out.println("\nIniciando QuickSort...");
         // Llama al método recursivo principal
@@ -253,8 +249,8 @@ public class Ordenar {
     }
 
     /**
-      Método de partición (esquema Hoare) del código de tu compañera.
-      Hecho 'static' y modificado para usar acceso directo a '.puntuacionTotal'.
+     * Método de partición (esquema Hoare) del código de tu compañera.
+     * Hecho 'static' y modificado para usar acceso directo a '.puntuacionTotal'.
      */
     public static int compara(ArrayList<Restaurante> arreglo, int inicio, int fin) {
         // Para hacer el codigo mas dinamico, eligimos un pivote aleatorio
@@ -287,8 +283,8 @@ public class Ordenar {
     }
 
     /**
-      Método para intercambiar dos elementos en el arreglo.
-      Hecho 'static'.
+     * Método para intercambiar dos elementos en el arreglo.
+     * Hecho 'static'.
      */
     public static void cambio(ArrayList<Restaurante> arreglo, int i, int j) {
         Restaurante temp = arreglo.get(i);
@@ -297,87 +293,95 @@ public class Ordenar {
     }
 
     /**
-      Método recursivo principal para aplicar el Quicksort.
-      Hecho 'static'.
+     * Método recursivo principal para aplicar el Quicksort.
+     * Hecho 'static'.
      */
     public static void recursividad(ArrayList<Restaurante> arreglo, int inicio, int fin) {
         if (inicio < fin) {
             int i = compara(arreglo, inicio, fin);
 
             // Las llamadas recursivas ahora son estáticas
-            if (inicio < i - 1) recursividad(arreglo, inicio, i - 1);
-            if (i < fin) recursividad(arreglo, i, fin);
+            if (inicio < i - 1)
+                recursividad(arreglo, inicio, i - 1);
+            if (i < fin)
+                recursividad(arreglo, i, fin);
         }
     }
 
     /**
-      Método para obtener un pivote aleatorio.
-      Hecho 'static'.
+     * Método para obtener un pivote aleatorio.
+     * Hecho 'static'.
      */
     public static int pivoteAleatorio(ArrayList<Restaurante> arreglo, int inicio, int fin) {
         int indiceAleatorio = inicio + (int) (Math.random() * (fin - inicio + 1));
         return indiceAleatorio;
     }
 
-    //Clase para obtener el promedio de los ratings y asi obtener una C (Parte de la formula) con la que trabajar
+    // Clase para obtener el promedio de los ratings y asi obtener una C (Parte de
+    // la formula) con la que trabajar
     public static double calcularRatingPromedio(String archivoOriginal) {
-        
+
         double sumaTotalRatings = 0.0;
         int conteoTotalLineas = 0;
-        
+
         try (BufferedReader br = new BufferedReader(new FileReader(archivoOriginal))) {
-            
+
             String linea;
-            
+
             // Leemos y con eso saltamos la cabecera
-            br.readLine(); 
+            br.readLine();
 
             // bucle que leera el resto del archivo
             while ((linea = br.readLine()) != null) {
-                
+
                 String[] partes = linea.split(",");
-                // se pone un try para que en caso de que los datos no coincidan, ej: sea 
-                //un string en vez de un numero, no se rompa el programa
-                try{
+                // se pone un try para que en caso de que los datos no coincidan, ej: sea
+                // un string en vez de un numero, no se rompa el programa
+                try {
                     String stringRatingSucio = partes[5];
 
                     // Limpiamos el string de posibles comillas u otros caracteres no numericos
-                    // Esto se hace porque se noto que al limpiar hay varios archivos decimales pasados por string
+                    // Esto se hace porque se noto que al limpiar hay varios archivos decimales
+                    // pasados por string
                     String stringRatingLimpio = stringRatingSucio.replace("\"", "").trim();
 
                     double rating = stringRatingLimpio.isEmpty() ? 0.0 : Double.parseDouble(stringRatingLimpio);
 
                     sumaTotalRatings += rating;
                     conteoTotalLineas++;
-                }catch (NumberFormatException e){
+                } catch (NumberFormatException e) {
                     System.err.println("Dato corrupto en el calculo de C: " + e.getMessage());
                 }
- 
+
             }
-            
+
         } catch (IOException e) {
             System.err.println("Error: " + e.getMessage());
         }
-        
+
         if (conteoTotalLineas > 0) {
             return sumaTotalRatings / conteoTotalLineas;
         } else {
-            return 0.0; // En caso de que no haya lineas 
+            return 0.0; // En caso de que no haya lineas
         }
     }
 
-    // Nuevo: comparador/recursividad quicksort por NumberReview (no tocar comentarios existentes)
+    // Nuevo: comparador/recursividad quicksort por NumberReview (no tocar
+    // comentarios existentes)
     public static int comparaReviews(ArrayList<Restaurante> arreglo, int inicio, int fin) {
         int pivote = pivoteAleatorio(arreglo, inicio, fin);
         int pivoteValor = arreglo.get(pivote).numeroResenas;
         int i = inicio;
         int j = fin;
         while (i <= j) {
-            while (i <= fin && arreglo.get(i).numeroResenas > pivoteValor) i++;
-            while (j >= inicio && arreglo.get(j).numeroResenas < pivoteValor) j--;
+            while (i <= fin && arreglo.get(i).numeroResenas > pivoteValor)
+                i++;
+            while (j >= inicio && arreglo.get(j).numeroResenas < pivoteValor)
+                j--;
             if (i <= j) {
                 cambio(arreglo, i, j);
-                i++; j--;
+                i++;
+                j--;
             }
         }
         return i;
@@ -386,18 +390,22 @@ public class Ordenar {
     public static void recursividadReviews(ArrayList<Restaurante> arreglo, int inicio, int fin) {
         if (inicio < fin) {
             int i = comparaReviews(arreglo, inicio, fin);
-            if (inicio < i - 1) recursividadReviews(arreglo, inicio, i - 1);
-            if (i < fin) recursividadReviews(arreglo, i, fin);
+            if (inicio < i - 1)
+                recursividadReviews(arreglo, inicio, i - 1);
+            if (i < fin)
+                recursividadReviews(arreglo, i, fin);
         }
     }
 
     // Imprime en consola el Top 20 de restaurantes sin nombres repetidos.
-    // Si porPuntuacion == true muestra Score, Reviews y Rating; si es false muestra Reviews y Rating.
+    // Si porPuntuacion == true muestra Score, Reviews y Rating; si es false muestra
+    // Reviews y Rating.
     public static void imprimirTop20Unicos(ArrayList<Restaurante> lista, boolean porPuntuacion) {
         ArrayList<String> nombresVistosLocal = new ArrayList<>(20); // como mucho guardaremos 20 nombres
         int mostrados = 0;
         for (Restaurante restauranteActual : lista) {
-            String nombreNormalizadoLocal = (restauranteActual.nombre == null) ? "" : restauranteActual.nombre.trim().toLowerCase();
+            String nombreNormalizadoLocal = (restauranteActual.nombre == null) ? ""
+                    : restauranteActual.nombre.trim().toLowerCase();
             boolean yaVisto = false;
             // búsqueda lineal en la lista pequeña nombresVistosLocal (máx 20 elementos)
             for (String n : nombresVistosLocal) {
@@ -406,42 +414,26 @@ public class Ordenar {
                     break;
                 }
             }
-            if (yaVisto) continue;
+            if (yaVisto)
+                continue;
 
             nombresVistosLocal.add(nombreNormalizadoLocal);
             mostrados++;
             if (porPuntuacion) {
                 System.out.printf("%2d. %-35s Score: %.4f  Reviews: %d  Rating: %.2f\n", mostrados,
-                    (restauranteActual.nombre.length() > 32 ? restauranteActual.nombre.substring(0, 32) + ".." : restauranteActual.nombre),
-                    restauranteActual.puntuacionTotal, restauranteActual.numeroResenas, restauranteActual.rating);
+                        (restauranteActual.nombre.length() > 32 ? restauranteActual.nombre.substring(0, 32) + ".."
+                                : restauranteActual.nombre),
+                        restauranteActual.puntuacionTotal, restauranteActual.numeroResenas, restauranteActual.rating);
             } else {
                 System.out.printf("%2d. %-40s Reviews: %d  Rating: %.2f\n", mostrados,
-                    (restauranteActual.nombre.length() > 37 ? restauranteActual.nombre.substring(0, 37) + ".." : restauranteActual.nombre),
-                    restauranteActual.numeroResenas, restauranteActual.rating);
+                        (restauranteActual.nombre.length() > 37 ? restauranteActual.nombre.substring(0, 37) + ".."
+                                : restauranteActual.nombre),
+                        restauranteActual.numeroResenas, restauranteActual.rating);
             }
 
-            if (mostrados >= 20) break;
+            if (mostrados >= 20)
+                break;
         }
     }
-    public static File encontrarArchivo(String nombreArchivo) {
-        // 1. Intento directo (si ejecutamos desde la carpeta 'java')
-        File f = new File(nombreArchivo);
-        if (f.exists()) return f;
 
-        // 2. Intento relativo a carpeta 'java' (si ejecutamos desde 'proyectoEda')
-        // File.separator se adapta automáticamente a Windows (\) o Linux (/)
-        f = new File("java" + File.separator + nombreArchivo);
-        if (f.exists()) return f;
-
-        // 3. Intento relativo a carpeta 'ProyectoEDA/java' (si ejecutamos desde 'EDAP')
-        f = new File("ProyectoEDA" + File.separator + "java" + File.separator + nombreArchivo);
-        if (f.exists()) return f;
-        
-        // 4. Intento en carpeta 'src' (común en IDEs como VS Code o IntelliJ)
-        f = new File("src" + File.separator + nombreArchivo);
-        if (f.exists()) return f;
-
-        // Si no se encuentra en ninguno
-        return null;
-    }
 }
