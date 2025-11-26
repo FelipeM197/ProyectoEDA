@@ -432,8 +432,12 @@ public class Ordenar {
         // File.separator se adapta automáticamente a Windows (\) o Linux (/)
         f = new File("java" + File.separator + nombreArchivo);
         if (f.exists()) return f;
+
+        // 3. Intento relativo a carpeta 'ProyectoEDA/java' (si ejecutamos desde 'EDAP')
+        f = new File("ProyectoEDA" + File.separator + "java" + File.separator + nombreArchivo);
+        if (f.exists()) return f;
         
-        // 3. Intento en carpeta 'src' (común en IDEs como VS Code o IntelliJ)
+        // 4. Intento en carpeta 'src' (común en IDEs como VS Code o IntelliJ)
         f = new File("src" + File.separator + nombreArchivo);
         if (f.exists()) return f;
 

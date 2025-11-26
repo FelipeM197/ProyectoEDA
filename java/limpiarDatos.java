@@ -80,8 +80,12 @@ public class limpiarDatos {
             // 2. Busca en subcarpeta 'java'
             f = new File("java" + File.separator + nombreArchivo);
             if (f.exists()) return f;
+
+            // 3. Busca en subcarpeta 'ProyectoEDA/java'
+            f = new File("ProyectoEDA" + File.separator + "java" + File.separator + nombreArchivo);
+            if (f.exists()) return f;
             
-            // 3. Busca en subcarpeta 'src'
+            // 4. Busca en subcarpeta 'src'
             f = new File("src" + File.separator + nombreArchivo);
             if (f.exists()) return f;
 
